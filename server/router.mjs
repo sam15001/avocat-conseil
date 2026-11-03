@@ -62,10 +62,11 @@ async function diagnostic() {
   if (ss && ss.length < 32) out.variables.SESSION_SECRET = `TROP COURTE (${ss.length} caractères, 32 minimum)`;
   const su = (process.env.SITE_URL || '').trim();
   if (su && !/^https:\/\/[^/]+\/?$/.test(su)) out.variables.SITE_URL = `INCORRECTE (« ${su} ») : mettez https://votre-site.netlify.app sans rien après`;
-  const fu = (process.env.FIREBASE_DATABASE_URL || '').trim();
+  const fu = ((process.env.FIREBASE_DATABASE_URL || '').match(/https?:\/\/[^\s"'\/]+/) || [''])[0];
+  if (!fu && E('FIREBASE_DATABASE_URL')) out.variables.FIREBASE_DATABASE_URL = 'INCORRECTE : la valeur doit commencer par https://';
   if (fu && !/^https:\/\/[^/]+\.(firebaseio\.com|firebasedatabase\.app)\/?$/.test(fu)) out.variables.FIREBASE_DATABASE_URL = `INCORRECTE (« ${fu} ») : copiez l'URL affichée en haut de Realtime Database`;
   try { await rtdb.get('meta/seeded'); out.tests.firebase = 'ok'; }
-  catch (e) { out.tests.firebase = 'ÉCHEC : ' + e.message; }
+  catch (e) { out.tests.firebase = 'ÉCHEC : ' + String(e.message).replace(/(auth|access_token)=[^&\s"']+/g, '$1=***'); }
   out.redirect_uri_a_declarer_dans_discord = (su.replace(/\/$/, '') || '(SITE_URL manquante)') + '/api/auth/callback';
   return json(out, 200, { 'cache-control': 'no-store' });
 }
