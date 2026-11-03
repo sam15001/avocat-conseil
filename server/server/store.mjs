@@ -16,7 +16,8 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 const env = k => (process.env[k] || '').trim();
 const baseUrl = () => {
-  const u = env('FIREBASE_DATABASE_URL').replace(/\/$/, '');
+  // Tolère une valeur collée avec « FIREBASE_DATABASE_URL= » devant ou des guillemets
+  const u = (env('FIREBASE_DATABASE_URL').match(/https?:\/\/[^\s"'\/]+/) || [''])[0];
   if (!u) throw new Error('FIREBASE_DATABASE_URL manquant');
   return u;
 };
@@ -50,7 +51,9 @@ const urlFor = async path => `${baseUrl()}/${clean(path)}${clean(path) ? '' : ''
 
 async function call(method, path, { body, headers = {} } = {}) {
   const url = await urlFor(path);
-  const res = await fetch(url, { method, headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...headers }, body: body !== undefined ? JSON.stringify(body) : undefined });
+  let res;
+  try { res = await fetch(url, { method, headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...headers }, body: body !== undefined ? JSON.stringify(body) : undefined }); }
+  catch { throw new Error('Firebase injoignable : vérifiez FIREBASE_DATABASE_URL'); } // message sans l'URL (elle contient le secret)
   if (res.status === 412) return { conflict: true, etag: res.headers.get('etag'), value: await res.json().catch(() => null) };
   if (!res.ok) {
     const t = await res.text().catch(() => '');
