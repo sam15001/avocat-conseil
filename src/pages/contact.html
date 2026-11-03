@@ -1,0 +1,31 @@
+<!-- {"title": "Contact — AVOCAT & CONSEIL", "desc": "Contacter le cabinet AVOCAT & CONSEIL.", "nav": "contact", "script": "public.mjs"} -->
+<section class="page-head">
+  <div class="wrap">
+    <nav class="breadcrumb" aria-label="Fil d'Ariane"><a href="/">Accueil</a><span>/</span><span>Contact</span></nav>
+    <h1>Contacter le cabinet</h1>
+    <p class="lede">Pour une question générale. Pour une affaire précise, déposez plutôt une demande depuis votre espace client : elle reçoit un numéro de dossier et un suivi.</p>
+  </div>
+</section>
+<section class="section">
+  <div class="wrap two-col">
+    <form class="form" id="contact-form" novalidate>
+      <div class="form-row">
+        <div class="field"><label for="c-name">Nom RP</label><input class="input" id="c-name" name="name" required maxlength="80" autocomplete="name"></div>
+        <div class="field"><label for="c-contact">Discord ou téléphone en jeu</label><input class="input" id="c-contact" name="contact" required maxlength="120"></div>
+      </div>
+      <div class="field"><label for="c-subject">Objet</label><input class="input" id="c-subject" name="subject" required maxlength="120"></div>
+      <div class="field"><label for="c-message">Message</label><textarea class="input" id="c-message" name="message" required minlength="10" maxlength="3000"></textarea></div>
+      <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div><button class="btn" type="submit">Envoyer le message</button></div>
+    </form>
+    <aside>
+      <div class="aside-box">
+        <h3>Coordonnées</h3>
+        <p class="muted">{{site:address}}</p>
+        <p class="muted">Téléphone en jeu : {{site:phone}}<br>{{site:hours}}</p>
+        <a class="btn btn-discord" href="{{site:discordInvite}}" target="_blank" rel="noopener">{{discord}} Rejoindre notre Discord</a>
+        <a class="btn btn-ghost" href="/rendez-vous.html">Prendre rendez-vous</a>
+      </div>
+    </aside>
+  </div>
+</section>
