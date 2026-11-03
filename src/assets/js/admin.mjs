@@ -280,9 +280,15 @@ const loaders = {
           <h3 style="margin:0">Outils</h3>
           <button class="btn btn-ghost btn-sm" id="install-cmds">Installer les commandes Discord</button>
           <button class="btn btn-ghost btn-sm" id="test-channels">Tester les salons</button>
+          <button class="btn btn-ghost btn-sm" id="post-welcome">Publier le message d'accueil</button>
+          <p class="hint" style="margin:0">Publie dans le salon d'accueil un message avec des boutons vers la prise de rendez-vous, les demandes et l'espace client. Pensez à l'épingler.</p>
           <div id="tools-out" class="muted" style="font-size:.88rem"></div></div></aside></div>`;
     $('#install-cmds').onclick = e => withLoading(e.currentTarget, async () => {
       try { const r = await api('/admin/discord/commands', { method: 'POST' }); $('#tools-out').innerHTML = `<p style="color:var(--ok)">Commandes installées : ${esc(r.commands.join(', '))}.</p>`; toast('Commandes Discord installées.'); }
+      catch (err) { $('#tools-out').innerHTML = `<p class="form-error">${esc(err.message)}</p>`; }
+    });
+    $('#post-welcome').onclick = e => withLoading(e.currentTarget, async () => {
+      try { await api('/admin/discord/welcome', { method: 'POST' }); $('#tools-out').innerHTML = '<p style="color:var(--ok)">Message d’accueil publié. Épinglez-le dans le salon (clic droit → Épingler).</p>'; toast('Message d’accueil publié.'); }
       catch (err) { $('#tools-out').innerHTML = `<p class="form-error">${esc(err.message)}</p>`; }
     });
     $('#test-channels').onclick = e => withLoading(e.currentTarget, async () => {

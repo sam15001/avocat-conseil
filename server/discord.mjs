@@ -40,14 +40,47 @@ export async function notify(channelKey, embed) {
 }
 
 // Message privé de confirmation (le citoyen doit partager un serveur avec le bot)
-export async function dm(discordId, embed) {
+// Rangée de boutons-liens vers le site : linkButtons(['Prendre rendez-vous', '/rendez-vous.html'], …)
+export function linkButtons(...links) {
+  return [{ type: 1, components: links.slice(0, 5).map(([label, path, emoji]) => ({ type: 2, style: 5, label, url: SITE_URL() + path, ...(emoji ? { emoji: { name: emoji } } : {}) })) }];
+}
+
+// Message d'accueil du serveur : tout passe par le site
+export function welcomeMessage() {
+  return {
+    embeds: [{
+      color: GOLD,
+      title: 'AVOCAT & CONSEIL — Cabinet d’avocats à Los Santos',
+      description: [
+        'Toutes les démarches se font sur **notre site** : c’est là que votre dossier reçoit un numéro et que vous suivez son avancement.',
+        '',
+        '**Prendre rendez-vous** : choisissez le domaine, la prestation, puis un créneau libre. Confirmation immédiate.',
+        '**Déposer une demande** : exposez votre situation et joignez vos preuves.',
+        '**Mon espace** : vos dossiers, vos rendez-vous et les messages de votre avocat.',
+        '',
+        'Connexion en un clic avec votre compte Discord. Les demandes envoyées ici en message ne sont pas traitées.'
+      ].join('\n'),
+      footer: { text: 'Tapez /rdv, /demande ou /site à tout moment pour retrouver ces liens.' }
+    }],
+    components: linkButtons(['Prendre rendez-vous', '/rendez-vous.html', '📅'], ['Déposer une demande', '/espace-client.html?nouvelle=1', '📝'],
+      ['Mon espace', '/espace-client.html', '📂'], ['Nos honoraires', '/honoraires.html', '⚖️']),
+    allowed_mentions: { parse: [] }
+  };
+}
+
+export async function postMessage(channelId, body) {
+  if (!process.env.DISCORD_BOT_TOKEN) return { ok: false, status: 0 };
+  return discordFetch(`/channels/${channelId}/messages`, { method: 'POST', body });
+}
+
+export async function dm(discordId, embed, buttons = [['Ouvrir mon espace client', '/espace-client.html']]) {
   try {
     if (!/^\d{15,22}$/.test(discordId || '')) return { skipped: 'no-discord' };
     if (!process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_DM_CONFIRMATIONS === 'false') return { skipped: true };
     const ch = await discordFetch('/users/@me/channels', { method: 'POST', body: { recipient_id: discordId } });
     if (!ch.ok) return ch;
     return await discordFetch(`/channels/${ch.data.id}/messages`, {
-      method: 'POST', body: { embeds: [{ color: GOLD, footer: { text: 'AVOCAT & CONSEIL' }, ...embed }] }
+      method: 'POST', body: { embeds: [{ color: GOLD, footer: { text: 'AVOCAT & CONSEIL' }, ...embed }], ...(buttons?.length ? { components: linkButtons(...buttons) } : {}) }
     });
   } catch (e) { return { error: e.message }; }
 }

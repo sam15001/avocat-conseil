@@ -14,6 +14,7 @@ export const SETTING_KEYS = {
   channel_active:       { env: 'DISCORD_CHANNEL_ACTIVE',       label: 'Salon des dossiers en cours' },
   channel_closed:       { env: 'DISCORD_CHANNEL_CLOSED',       label: 'Salon des dossiers clôturés' },
   channel_admin:        { env: 'DISCORD_CHANNEL_ADMIN',        label: 'Salon des notifications administratives' },
+  channel_welcome:      { env: 'DISCORD_CHANNEL_WELCOME',      label: 'Salon d’accueil des clients (message avec les liens du site)' },
   role_avocat:          { env: 'DISCORD_ROLE_AVOCAT',          label: 'Rôle Discord « Avocat »' },
   role_responsable:     { env: 'DISCORD_ROLE_RESPONSABLE',     label: 'Rôle Discord « Responsable juridique »' },
   role_direction:       { env: 'DISCORD_ROLE_DIRECTION',       label: 'Rôle Discord « Direction »' }

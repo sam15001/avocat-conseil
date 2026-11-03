@@ -58,7 +58,7 @@ export async function changeStatus(c, to, actor, message = null) {
     await dm(c.client_discord_id, {
       title: `Votre dossier ${c.number}`,
       description: `Nouveau statut : **${STATUS_BY_KEY[to].label}**${message ? `\n\n${message}` : ''}`
-    });
+    }, [['Voir mon dossier', `/dossier.html?n=${c.number}`]]);
   }
   return updated;
 }
@@ -78,7 +78,7 @@ export async function assignCase(c, lawyerId, actor) {
   const updated = { ...c, lawyer_id: lawyerId, status: newStatus };
   await notify('active', embeds.assign(updated, lawyer.display_name, displayName(actor)));
   if (lawyer.discord_id) {
-    await dm(lawyer.discord_id, { title: `Nouveau dossier attribué : ${c.number}`, description: `${c.title}\n\nAcceptez ou refusez la prise en charge depuis votre espace avocat.` });
+    await dm(lawyer.discord_id, { title: `Nouveau dossier attribué : ${c.number}`, description: `${c.title}\n\nAcceptez ou refusez la prise en charge depuis votre espace avocat.` }, [['Ouvrir le dossier', `/dossier.html?n=${c.number}`]]);
   }
   return { ...updated, lawyer_name: lawyer.display_name };
 }

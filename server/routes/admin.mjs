@@ -2,7 +2,7 @@ import { route } from '../router.mjs';
 import { json, readJson, str, int, fail } from '../http.mjs';
 import { all, get, insert, update, remove, rtdb, addEvent, now, allAvailability } from '../store.mjs';
 import { stats, displayName, isClosed } from '../services.mjs';
-import { notify, discordFetch } from '../discord.mjs';
+import { notify, discordFetch, postMessage, welcomeMessage } from '../discord.mjs';
 import { SETTING_KEYS, getSettings, invalidateSettings } from '../config.mjs';
 import crypto from 'node:crypto';
 import { cleanSpecialties, saveAvailability, getAvailability, cleanIdentity, cleanPhotoUpload, savePhoto, photoUrl } from './lawyer.mjs';
@@ -326,4 +326,12 @@ route('POST', '/api/admin/discord/test', async ({ user }) => {
     results.push({ key, label: SETTING_KEYS[`channel_${key}`].label, ok: !!r?.ok, error: r?.ok ? null : (r?.status === 403 ? 'Le bot n’a pas accès à ce salon' : r?.status === 404 ? 'Salon introuvable' : r?.status === 401 ? 'Token du bot invalide' : 'Envoi impossible') });
   }
   return json({ results });
+}, { auth: 3 });
+
+route('POST', '/api/admin/discord/welcome', async () => {
+  const settings = await getSettings({ fresh: true });
+  if (!settings.channel_welcome) fail(400, "Renseignez d'abord le « Salon d’accueil des clients » ci-dessus, puis enregistrez.");
+  const r = await postMessage(settings.channel_welcome, welcomeMessage());
+  if (!r.ok) fail(502, r.status === 403 ? 'Le bot n’a pas le droit d’écrire dans ce salon.' : r.status === 404 ? 'Salon introuvable : vérifiez l’identifiant.' : 'Envoi impossible : vérifiez le token du bot.');
+  return json({ ok: true, message_id: r.data?.id });
 }, { auth: 3 });

@@ -44,8 +44,8 @@ route('POST', '/api/cases', async ({ req, user }) => {
   await addEvent(c.id, { actor_id: user.id, type: 'created', to_status: 'recue', message: 'Demande déposée depuis l’espace client' });
   if (referent) await addEvent(c.id, { type: 'assign', from_status: 'recue', to_status: 'attribue', message: `Dossier confié à votre avocat référent, ${referent.display_name}` });
   await notify('requests', embeds.newCase({ ...c, auto_lawyer: referent?.display_name }, user));
-  await dm(user.discord_id, { title: `Demande enregistrée : ${c.number}`, description: `Votre demande « ${title} » a bien été reçue.${referent ? ` Elle est confiée à votre avocat référent, ${referent.display_name}.` : ''} Suivez son avancement dans votre espace client.` });
-  if (referent) await dm(referent.discord_id, { title: `Nouveau dossier de votre client : ${c.number}`, description: `${title}\n\nCe client fait partie de votre portefeuille : le dossier vous est confié directement.` });
+  await dm(user.discord_id, { title: `Demande enregistrée : ${c.number}`, description: `Votre demande « ${title} » a bien été reçue.${referent ? ` Elle est confiée à votre avocat référent, ${referent.display_name}.` : ''} Suivez son avancement dans votre espace client.` }, [['Voir mon dossier', `/dossier.html?n=${c.number}`], ['Prendre rendez-vous', `/rendez-vous.html?dossier=${c.number}`]]);
+  if (referent) await dm(referent.discord_id, { title: `Nouveau dossier de votre client : ${c.number}`, description: `${title}\n\nCe client fait partie de votre portefeuille : le dossier vous est confié directement.` }, [['Ouvrir le dossier', `/dossier.html?n=${c.number}`]]);
   return json({ case: { number: c.number, lawyer_name: referent?.display_name ?? null } }, 201);
 }, { auth: 'user' });
 

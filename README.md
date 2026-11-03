@@ -19,7 +19,7 @@ Le guide pas à pas pour débutant est le document « Guide de mise en ligne —
 | Portefeuilles | Chaque client a un avocat référent unique : fixé à son 1er rendez-vous ou à la 1re attribution d'un dossier. Ensuite : rendez-vous uniquement avec lui, nouveaux dossiers confiés automatiquement, attribution à un autre avocat bloquée. Transfert possible depuis Administration → Clients (avec ou sans ses dossiers en cours) |
 | Espace avocat | Portefeuille de clients, dossiers attribués, accepter / refuser, statut, notes internes, documents internes, calendrier, historique, disponibilités, fiche pro |
 | Administration | Tableau de bord (indicateurs, courbe d'activité, prochains rendez-vous, dernières demandes), dossiers (recherche, filtres, attribution, archivage), agenda de tous les rendez-vous, avocats (prénom, nom, téléphone, e-mail, photo, spécialités, rôle), clients, candidatures, messages, actualités, paramètres Discord |
-| Discord | Connexion OAuth2, rôles Discord → droits sur le site, notifications dans 5 salons, messages privés de confirmation, 6 commandes slash synchronisées avec le site |
+| Discord | Connexion OAuth2, rôles Discord → droits sur le site, notifications dans 5 salons, messages privés de confirmation, 9 commandes slash (3 publiques qui renvoient vers le site, 6 pour le cabinet), message d'accueil avec boutons |
 
 Rôles : **Citoyen** (aucun rôle) · **Avocat** · **Responsable juridique** · **Direction**. Le rôle effectif est le plus élevé entre le rôle Discord (relu à chaque connexion) et le rôle attribué depuis l'administration.
 
@@ -100,7 +100,7 @@ Rien à faire côté base : Firebase n'a pas de schéma, les nouveaux champs son
 | `DISCORD_BOT_TOKEN` | Developer Portal → Bot | Pour les notifications |
 | `DISCORD_GUILD_ID` | Identifiant du serveur | Oui |
 | `DISCORD_REQUIRE_MEMBER` | `true` = seuls les membres du serveur se connectent | Non |
-| `DISCORD_CHANNEL_*` (5) | Identifiants des salons | Modifiables dans l'admin |
+| `DISCORD_CHANNEL_*` (6) | Identifiants des salons (dont `DISCORD_CHANNEL_WELCOME` = salon d'accueil) | Modifiables dans l'admin |
 | `DISCORD_ROLE_*` (3) | Identifiants des rôles | Modifiables dans l'admin |
 | `DISCORD_DM_CONFIRMATIONS` | `false` pour couper les messages privés | Non |
 | `CABINET_TIMEZONE` | ex. `Europe/Paris` | Non |
@@ -113,14 +113,21 @@ Le token du bot et le secret OAuth2 ne quittent jamais le serveur : aucun secret
 
 | Commande | Qui | Effet |
 |---|---|---|
+| `/rdv` | Tout le monde | Bouton vers la prise de rendez-vous du site |
+| `/demande` | Tout le monde | Bouton vers le dépôt de demande |
+| `/site` | Tout le monde (aussi en MP) | Message avec les 4 liens du site |
 | `/dossiers [filtre]` | Avocat+ | Nouvelles demandes, mes dossiers, ou tous les actifs |
 | `/dossier numero` | Avocat (ses dossiers), Responsable+ | Détail d'un dossier |
-| `/rendezvous` | Avocat (les siens), Responsable+ (tous) | Prochains rendez-vous |
+| `/agenda` | Avocat (les siens), Responsable+ (tous) | Prochains rendez-vous |
 | `/attribuer numero avocat` | Responsable+ | Attribue le dossier, synchronisé avec le site |
 | `/statut numero statut [commentaire]` | Avocat attribué, Responsable+ | Change le statut, notifie le client |
 | `/stats` | Avocat+ | Compteurs du cabinet |
 
-Pour utiliser `/attribuer` et `/statut`, le membre doit s'être connecté une fois au site.
+Pour utiliser `/attribuer` et `/statut`, le membre doit s'être connecté une fois au site. Un citoyen qui tape une commande du cabinet reçoit des boutons vers le site.
+
+**Guider les clients vers le site** : créez un salon `#prendre-rendez-vous` en lecture seule, renseignez son identifiant dans Administration → Paramètres (« Salon d'accueil »), cliquez **Publier le message d'accueil**, puis épinglez le message. Tous les messages privés du bot portent aussi un bouton vers le dossier ou l'espace client.
+
+Après chaque mise à jour du code, recliquez **Installer les commandes Discord**.
 
 ---
 
@@ -149,7 +156,7 @@ Pour tester la connexion Discord en local, ajoutez `http://localhost:8888/api/au
 
 ### Tests automatisés
 
-`tests/` contient un faux Discord, un faux Firebase et 151 vérifications de bout en bout (Chrome) : connexion, rôles, dépôt de dossier, notifications, attribution, statuts, notes internes, rendez-vous, prestations, commandes slash signées, permissions, mobile.
+`tests/` contient un faux Discord, un faux Firebase et 157 vérifications de bout en bout (Chrome) : connexion, rôles, dépôt de dossier, notifications, attribution, statuts, notes internes, rendez-vous, prestations, commandes slash signées, permissions, mobile.
 
 ```bash
 node tests/mock-discord.mjs &           # faux Discord sur :9999

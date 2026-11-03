@@ -52,9 +52,9 @@ async function book({ user, client, lawyerId, date, time, reason, domain, servic
   }
 
   await notify('appointments', embeds.newAppointment({ ...appt, date, time, service, case_number: caseRow?.number }, client, lawyer.display_name));
-  await dm(client.discord_id, { title: 'Rendez-vous confirmé', description: `Le ${formatDateFr(date, time)} avec ${lawyer.display_name}.${service ? `\nPrestation : ${service}` : ''}\nMotif : ${reason}` });
+  await dm(client.discord_id, { title: 'Rendez-vous confirmé', description: `Le ${formatDateFr(date, time)} avec ${lawyer.display_name}.${service ? `\nPrestation : ${service}` : ''}\nMotif : ${reason}` }, [['Mes rendez-vous', '/espace-client.html#rendez-vous']]);
   if (lawyer.discord_id && lawyer.discord_id !== client.discord_id) {
-    await dm(lawyer.discord_id, { title: 'Nouveau rendez-vous', description: `${displayName(client)} — ${formatDateFr(date, time)}\n${reason}` });
+    await dm(lawyer.discord_id, { title: 'Nouveau rendez-vous', description: `${displayName(client)} — ${formatDateFr(date, time)}\n${reason}` }, [['Mon calendrier', '/espace-avocat.html#calendrier']]);
   }
   return appt;
 }
@@ -94,7 +94,7 @@ route('POST', '/api/appointments/:id/cancel', async ({ params, user }) => {
   await update('appointments', a.id, { status: 'annule' });
   await unlockSlot(slotKey(a.lawyer_id, a.date, a.time));
   await notify('appointments', embeds.cancelAppointment(a, displayName(user), a.lawyer_name));
-  if (staff && a.client_discord_id) await dm(a.client_discord_id, { title: 'Rendez-vous annulé', description: `Votre rendez-vous du ${formatDateFr(a.date, a.time)} avec ${a.lawyer_name} a été annulé par le cabinet.` });
+  if (staff && a.client_discord_id) await dm(a.client_discord_id, { title: 'Rendez-vous annulé', description: `Votre rendez-vous du ${formatDateFr(a.date, a.time)} avec ${a.lawyer_name} a été annulé par le cabinet.` }, [['Reprendre rendez-vous', '/rendez-vous.html']]);
   return json({ ok: true });
 }, { auth: 'user' });
 

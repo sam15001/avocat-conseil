@@ -7,13 +7,21 @@ import { getCase, changeStatus, assignCase, canManageCase, stats, isClosed } fro
 const recent = (a, b) => String(b.updated_at).localeCompare(String(a.updated_at));
 import { HttpError } from './http.mjs';
 import { STATUSES, STATUS_BY_KEY, DOMAIN_BY_SLUG } from '../shared/domains.mjs';
-import { formatDateFr } from './discord.mjs';
+import { formatDateFr, linkButtons, welcomeMessage } from './discord.mjs';
+
+// Commandes ouvertes à tous : elles renvoient vers le site
+export const PUBLIC_COMMANDS = [
+  { name: 'rdv', description: 'Prendre rendez-vous avec un avocat du cabinet' },
+  { name: 'demande', description: 'Déposer une demande juridique au cabinet' },
+  { name: 'site', description: 'Le site du cabinet : rendez-vous, demandes, suivi de vos dossiers' }
+];
 
 export const COMMANDS = [
+  ...PUBLIC_COMMANDS,
   { name: 'dossiers', description: 'Lister les nouvelles demandes ou vos dossiers en cours',
     options: [{ type: 3, name: 'filtre', description: 'Quels dossiers afficher', required: false,
       choices: [{ name: 'Nouvelles demandes', value: 'nouvelles' }, { name: 'Mes dossiers', value: 'mes' }, { name: 'Tous les dossiers actifs', value: 'actifs' }] }] },
-  { name: 'rendezvous', description: 'Afficher les prochains rendez-vous' },
+  { name: 'agenda', description: 'Cabinet : afficher les prochains rendez-vous' },
   { name: 'dossier', description: "Afficher le détail d'un dossier",
     options: [{ type: 3, name: 'numero', description: 'Numéro du dossier (ex. AC-2026-0001)', required: true }] },
   { name: 'attribuer', description: 'Attribuer un dossier à un avocat',
@@ -40,8 +48,20 @@ export function verifySignature(rawBody, signature, timestamp, publicKeyHex) {
   } catch { return false; }
 }
 
-const reply = (content, { embeds, ephemeral = true } = {}) =>
-  ({ type: 4, data: { content, embeds, flags: ephemeral ? 64 : 0, allowed_mentions: { parse: [] } } });
+const reply = (content, { embeds, components, ephemeral = true } = {}) =>
+  ({ type: 4, data: { content, embeds, components, flags: ephemeral ? 64 : 0, allowed_mentions: { parse: [] } } });
+
+function publicReply(name) {
+  const GOLD = 0xB08D57;
+  if (name === 'rdv') return reply(null, { embeds: [{ color: GOLD, title: 'Prendre rendez-vous',
+    description: 'Les rendez-vous se prennent sur le site, en 1 minute : choisissez le domaine, la prestation, puis un créneau libre. Votre avocat est prévenu aussitôt et vous recevez la confirmation ici en message privé.' }],
+    components: linkButtons(['Prendre rendez-vous', '/rendez-vous.html', '📅'], ['Nos honoraires', '/honoraires.html', '⚖️']) });
+  if (name === 'demande') return reply(null, { embeds: [{ color: GOLD, title: 'Déposer une demande',
+    description: 'Exposez votre situation sur le site et joignez vos preuves. Votre demande reçoit un numéro de dossier et vous suivez chaque étape depuis votre espace client.' }],
+    components: linkButtons(['Déposer une demande', '/espace-client.html?nouvelle=1', '📝'], ['Mon espace', '/espace-client.html', '📂']) });
+  const w = welcomeMessage();
+  return reply(null, { embeds: w.embeds, components: w.components });
+}
 
 const opt = (i, name) => i.data.options?.find(o => o.name === name)?.value;
 const link = n => `[${n}](${SITE_URL()}/dossier.html?n=${n})`;
@@ -68,10 +88,11 @@ export const handleInteraction = interaction => withCache(() => handleInner(inte
 async function handleInner(interaction) {
   if (interaction.type === 1) return { type: 1 }; // PING
   if (interaction.type !== 2) return reply('Interaction non prise en charge.');
+  if (PUBLIC_COMMANDS.some(c => c.name === interaction.data?.name)) return publicReply(interaction.data.name);
 
   const actor = await actorFrom(interaction);
   if (!actor) return reply('Utilisez cette commande sur le serveur du cabinet.');
-  if (actor.role < 1) return reply("Cette commande est réservée aux membres du cabinet.");
+  if (actor.role < 1) return reply("Cette commande est réservée aux membres du cabinet. Pour vos démarches, passez par le site :", { components: linkButtons(['Prendre rendez-vous', '/rendez-vous.html'], ['Mon espace', '/espace-client.html']) });
   const name = interaction.data.name;
 
   try {
@@ -91,7 +112,7 @@ async function handleInner(interaction) {
         `**${link(r.number)}** · ${STATUS_BY_KEY[r.status].label}\n${r.title.slice(0, 80)} — ${DOMAIN_BY_SLUG[r.domain]?.name || r.domain}${r.lawyer ? ` — ${r.lawyer}` : ''}`).join('\n\n') }] });
     }
 
-    if (name === 'rendezvous') {
+    if (name === 'agenda') {
       const mine = actor.role < 2;
       const [appts, lawyers, users] = await Promise.all([all('appointments'), all('lawyers'), all('users')]);
       const L = new Map(lawyers.map(l => [l.user_id, l])), U = new Map(users.map(u => [u.id, u]));
