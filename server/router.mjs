@@ -1,6 +1,6 @@
 import { json, HttpError, fail } from './http.mjs';
 import { currentUser } from './session.mjs';
-import { withCache } from './store.mjs';
+import { withCache, rtdb } from './store.mjs';
 import { ensureSeeded } from './seed.mjs';
 
 const routes = [];
@@ -25,6 +25,7 @@ async function handleInner(req) {
     if (!['GET', 'HEAD'].includes(req.method) && req.headers.get('x-requested-with') !== 'avocat-conseil') {
       fail(403, 'Requête refusée.');
     }
+    if (path === '/api/diagnostic' && req.method === 'GET') return await diagnostic();
     await ensureSeeded();
     let matchedPath = false;
     for (const r of routes) {
@@ -48,4 +49,23 @@ async function handleInner(req) {
     console.error('[api]', req.method, path, e);
     return json({ error: 'Erreur interne. Réessayez dans un instant.' }, 500);
   }
+}
+
+// Page de diagnostic publique : indique ce qui manque, sans jamais afficher de secret
+async function diagnostic() {
+  const E = k => Boolean((process.env[k] || '').trim());
+  const out = { variables: {}, tests: {} };
+  for (const k of ['SITE_URL', 'SESSION_SECRET', 'FIREBASE_DATABASE_URL', 'DISCORD_APPLICATION_ID', 'DISCORD_CLIENT_SECRET', 'DISCORD_PUBLIC_KEY', 'DISCORD_BOT_TOKEN', 'DISCORD_GUILD_ID'])
+    out.variables[k] = E(k) ? 'ok' : 'MANQUANTE';
+  out.variables.FIREBASE_AUTH = E('FIREBASE_DATABASE_SECRET') ? 'secret ok' : (E('FIREBASE_CLIENT_EMAIL') && E('FIREBASE_PRIVATE_KEY')) ? 'compte de service ok' : 'MANQUANTE (FIREBASE_DATABASE_SECRET)';
+  const ss = process.env.SESSION_SECRET || '';
+  if (ss && ss.length < 32) out.variables.SESSION_SECRET = `TROP COURTE (${ss.length} caractères, 32 minimum)`;
+  const su = (process.env.SITE_URL || '').trim();
+  if (su && !/^https:\/\/[^/]+\/?$/.test(su)) out.variables.SITE_URL = `INCORRECTE (« ${su} ») : mettez https://votre-site.netlify.app sans rien après`;
+  const fu = (process.env.FIREBASE_DATABASE_URL || '').trim();
+  if (fu && !/^https:\/\/[^/]+\.(firebaseio\.com|firebasedatabase\.app)\/?$/.test(fu)) out.variables.FIREBASE_DATABASE_URL = `INCORRECTE (« ${fu} ») : copiez l'URL affichée en haut de Realtime Database`;
+  try { await rtdb.get('meta/seeded'); out.tests.firebase = 'ok'; }
+  catch (e) { out.tests.firebase = 'ÉCHEC : ' + e.message; }
+  out.redirect_uri_a_declarer_dans_discord = (su.replace(/\/$/, '') || '(SITE_URL manquante)') + '/api/auth/callback';
+  return json(out, 200, { 'cache-control': 'no-store' });
 }
