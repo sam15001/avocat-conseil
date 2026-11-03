@@ -1,0 +1,15 @@
+{
+  "name": "avocat-conseil",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Site du cabinet AVOCAT & CONSEIL — GTA V RP (Netlify + Firebase + Discord)",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs && node scripts/dev-server.mjs",
+    "discord:commands": "node scripts/register-commands.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
