@@ -44,7 +44,7 @@ function cleanService(b) {
 
 route('GET', '/api/admin/services', async () => {
   const [services, appts, cases] = await Promise.all([all('services'), all('appointments'), all('cases')]);
-  const n = (arr, s) => arr.filter(x => x.domain === s.domain && x.service === s.name).length;
+  const n = (arr, s) => arr.filter(x => (x.services || []).some(y => y.domain === s.domain && y.name === s.name) || (x.domain === s.domain && x.service === s.name)).length;
   return json({ services: ordered(services).sort((a, b) => a.domain.localeCompare(b.domain)).map(s => ({ ...pick(s), appointments: n(appts, s), cases: n(cases, s) })) });
 }, { auth: 2 });
 

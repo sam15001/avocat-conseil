@@ -13,7 +13,7 @@ async function apptViews(filter) {
   const L = new Map(lawyers.map(l => [l.user_id, l])), U = new Map(users.map(u => [u.id, u])), C = new Map(cases.map(c => [c.id, c]));
   return appts.filter(filter).map(a => {
     const u = U.get(a.client_id);
-    return { id: a.id, date: a.date, time: a.time, duration: a.duration, domain: a.domain, service: a.service, reason: a.reason, status: a.status,
+    return { id: a.id, date: a.date, time: a.time, duration: a.duration, domain: a.domain, domains: a.domains || [a.domain], service: a.service, services: a.services || null, reason: a.reason, status: a.status,
       lawyer_name: L.get(a.lawyer_id)?.display_name ?? null, lawyer_id: a.lawyer_id, case_number: C.get(a.case_id)?.number ?? null,
       client_name: displayName(u), client_discord_id: u?.discord_id ?? null, client_id: a.client_id };
   });
@@ -21,8 +21,8 @@ async function apptViews(filter) {
 const byWhen = (a, b) => (a.date + a.time).localeCompare(b.date + b.time);
 const slotKey = (lawyerId, date, time) => `${lawyerId}_${date}_${time.replace(':', '')}`;
 
-async function book({ user, client, lawyerId, date, time, reason, domain, service = null, caseRow, createdBy }) {
-  await validateService(domain, service);
+async function book({ user, client, lawyerId, date, time, reason, domain, service = null, picks = null, caseRow, createdBy }) {
+  if (picks) for (const x of picks) await validateService(x.domain, x.name); else await validateService(domain, service);
   // Portefeuille : le client ne consulte que son avocat référent
   const fresh = await get('users', client.id);
   const refLawyer = fresh?.referent_lawyer_id ? await get('lawyers', fresh.referent_lawyer_id) : null;
@@ -43,7 +43,7 @@ async function book({ user, client, lawyerId, date, time, reason, domain, servic
   const id = await nextId('appointments');
   const key = slotKey(lawyerId, date, time);
   if (!await lockSlot(key, id)) fail(409, "Ce créneau vient d'être réservé. Choisissez-en un autre.");
-  const appt = await insert('appointments', { case_id: caseRow?.id || null, client_id: client.id, lawyer_id: lawyerId, domain, service, date, time,
+  const appt = await insert('appointments', { case_id: caseRow?.id || null, client_id: client.id, lawyer_id: lawyerId, domain, service, ...(picks?.length ? { services: picks, domains: [...new Set(picks.map(x => x.domain))] } : {}), date, time,
     duration: slot.duration, reason, status: 'confirme', created_by: createdBy.id }, { id });
   await setReferentIfNone(client.id, lawyerId);
   if (caseRow && !isClosed(caseRow.status)) {
@@ -76,10 +76,16 @@ route('POST', '/api/appointments', async ({ req, user }) => {
   const today = todayInTz();
   const upcoming = (await all('appointments')).filter(a => a.client_id === user.id && a.status === 'confirme' && a.date >= today).length;
   if (upcoming >= 3) fail(429, 'Vous avez déjà 3 rendez-vous à venir.');
+  // Plusieurs prestations possibles, y compris de domaines différents : [{ domain, name }]
+  let picks = Array.isArray(b.services) ? b.services : (b.service ? [{ domain, name: b.service }] : []);
+  if (picks.length > 8) fail(400, 'Choisissez 8 prestations au maximum.');
+  picks = picks.map(x => ({ domain: str(x?.domain, 'Domaine'), name: str(x?.name, 'Prestation', { max: 120 }) }));
+  for (const x of picks) if (!DOMAIN_BY_SLUG[x.domain]) fail(400, 'Domaine juridique inconnu.');
+  picks = picks.filter((x, i) => picks.findIndex(y => y.domain === x.domain && y.name === x.name) === i);
   const appt = await book({
-    user, client: user, createdBy: user, caseRow, domain,
+    user, client: user, createdBy: user, caseRow, domain: picks[0]?.domain || domain, picks,
     lawyerId: int(b.lawyer_id, 'Avocat'), date: str(b.date, 'Date'), time: str(b.time, 'Créneau'),
-    service: str(b.service, 'Prestation', { max: 120, optional: true }),
+    service: picks.map(x => x.name).join(' · ') || null,
     reason: str(b.reason, 'Motif', { min: 5, max: 500 })
   });
   return json({ appointment: { id: appt.id } }, 201);

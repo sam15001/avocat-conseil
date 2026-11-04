@@ -219,7 +219,7 @@ with sync_playwright() as p:
     services = [x.inner_text().split('\n')[0] for x in c.query_selector_all('.service-option')]
     check('Prestations du droit pénal proposées (+ « Autre demande »)', "Assistance lors d'un interrogatoire" in services and services[-1] == 'Autre demande' and len(services) == 31, services)
     c.screenshot(path=f'{SHOTS}/05a-rdv-prestations.png', full_page=True)
-    c.click('.service-option[data-s="Contestation d\'une mise en accusation"]'); c.wait_for_selector('.referent-card')
+    c.click('.service-option[data-s="Contestation d\'une mise en accusation"]'); c.click('[data-next]'); c.wait_for_selector('.referent-card')
     check('Étape avocat : avocat référent imposé', 'Votre avocat référent' in c.content() and 'Harvey Collins' in c.content())
     c.screenshot(path=f'{SHOTS}/05b-rdv-referent.png', full_page=True)
     c.click('[data-next]'); c.wait_for_selector('.day')
@@ -237,6 +237,32 @@ with sync_playwright() as p:
     check('Notification Discord : prestation indiquée', am and {x['name']: x['value'] for x in am[-1]['embeds'][0]['fields']}.get('Prestation') == "Contestation d'une mise en accusation")
     check('Notification Discord « nouveau rendez-vous » (citoyen, avocat, date, motif)', am and {x['name']: x['value'] for x in am[-1]['embeds'][0]['fields']}.get('Avocat') == 'Harvey Collins'
           and '19:30' in {x['name']: x['value'] for x in am[-1]['embeds'][0]['fields']}['Date'], am[-1:])
+    print('\n[8b] Plusieurs pôles et prestations')
+    c2_saved = c2; c3_ctx, c2 = login(browser, 'citoyen3')
+    c2.goto(f'{BASE}/rendez-vous.html'); c2.wait_for_selector('.choice')
+    c2.click('.choice[data-v="affaires"]'); c2.click('.choice[data-v="civil"]'); c2.wait_for_selector('#services-civil')
+    check('Deux pôles sélectionnés : deux listes de prestations', c2.locator('.service-pick').count() == 2)
+    check('Bouton bloqué tant qu’un pôle n’a pas de prestation', c2.locator('[data-next][disabled]').count() == 1)
+    c2.click('.service-option[data-d="affaires"][data-s="Contrats commerciaux"]'); c2.click('.service-option[data-d="affaires"][data-s="Litiges entre entreprises"]')
+    c2.click('.service-option[data-d="civil"][data-s="Réclamations financières"]')
+    check('Récapitulatif : 3 prestations sur 2 pôles', '3 prestations' in c2.inner_text('.pick-summary') and c2.locator('[data-next][disabled]').count() == 0)
+    c2.click('[data-next]'); c2.wait_for_selector('.badge-best')
+    best = c2.locator('.choice[aria-pressed="true"]').inner_text()
+    check('Avocat couvrant les 2 pôles choisi d’office', 'Nadia Okafor' in best and 'Couvre vos 2 pôles' in best, best)
+    check('Les autres avocats passent après', c2.locator('.lawyer-group').first.inner_text().startswith('Recommandé'))
+    c2.screenshot(path=f'{SHOTS}/05c-rdv-multi-poles.png', full_page=True)
+    c2.click('[data-next]'); c2.wait_for_selector('.day')
+    c2.click(f'.day[data-d="{next_weekday(1).isoformat()}"]'); c2.wait_for_selector('.slot'); c2.click('.slot >> nth=0'); c2.click('[data-next]'); c2.wait_for_selector('#b-reason')
+    check('Confirmation : les 3 prestations listées', c2.locator('.recap-list li').count() == 3)
+    c2.fill('#b-reason', 'Litige commercial et dette impayée.'); c2.click('[data-next]'); c2.wait_for_selector('text=Rendez-vous confirmé')
+    ap = [x for x in api(c2, '/appointments')[1]['appointments'] if x['status'] == 'confirme'][0]
+    check('Rendez-vous enregistré avec 2 pôles et 3 prestations', ap['domains'] == ['affaires', 'civil'] and len(ap['services']) == 3, ap)
+    am2 = [m for m in messages(CH['appts']) if m['embeds'][0]['title'] == 'Nouveau rendez-vous'][-1]
+    f2 = {x['name']: x['value'] for x in am2['embeds'][0]['fields']}
+    check('Discord : domaines et prestations listés', f2.get('Domaines') == 'Droit des affaires, Droit civil' and 'Prestations (3)' in f2, f2)
+    api(c2, f"/appointments/{ap['id']}/cancel", 'POST')
+    check('Prestation d’un autre pôle refusée', api(c2, '/appointments', 'POST', {'domain': 'civil', 'services': [{'domain': 'civil', 'name': 'Contrats commerciaux'}], 'lawyer_id': api(a2, '/me')[1]['user']['id'], 'date': next_weekday(1).isoformat(), 'time': '18:00', 'reason': 'Test'})[0] == 400)
+    c3_ctx.close(); c2 = c2_saved
     check('Dossier lié passé à « Rendez-vous programmé »', api(c, f'/cases/{num}')[1]['case']['status'] == 'rdv')
     a2_id = api(a2, '/me')[1]['user']['id']
     st, _ = api(c, '/appointments', 'POST', {'domain': 'affaires', 'lawyer_id': a2_id, 'date': next_weekday(1).isoformat(), 'time': '18:00', 'reason': 'Autre avocat'})
@@ -266,7 +292,7 @@ with sync_playwright() as p:
     check('Notification « nouvelle demande » : avocat référent indiqué', nc and any(f['name'] == 'Avocat référent' for f in nc[0]['embeds'][0]['fields']))
     pf = api(a1, '/lawyer/portfolio')[1]['clients']
     check('Onglet portefeuille : clients de l’avocat', {x['name'] for x in pf} >= {'Tony Moretti', 'Lucia Castellano'}, pf)
-    check('Portefeuille d’un autre avocat : vide', api(a2, '/lawyer/portfolio')[1]['clients'] == [])
+    check('Portefeuille d’un autre avocat : seulement ses clients', [x['name'] for x in api(a2, '/lawyer/portfolio')[1]['clients']] == ['Jade Morel'])
     a1.goto(f'{BASE}/espace-avocat.html#portefeuille'); a1.wait_for_selector('.portfolio-client'); a1.screenshot(path=f'{SHOTS}/07c-avocat-portefeuille.png', full_page=True)
     check('Rendez-vous visible dans le calendrier de l’avocat', True)
     a1.goto(f'{BASE}/espace-avocat.html#calendrier'); a1.wait_for_selector('.agenda-day')

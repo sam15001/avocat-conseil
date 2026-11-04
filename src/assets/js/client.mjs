@@ -158,7 +158,7 @@ const loaders = {
     const upcoming = appointments.filter(a => a.status === 'confirme' && a.date >= today).reverse();
     const past = appointments.filter(a => !(a.status === 'confirme' && a.date >= today));
     const row = (a, cancel) => `<div class="appt"><div class="t">${esc(a.time)}</div>
-      <div class="w"><b>${esc(fmtDay(a.date))}</b> avec ${esc(a.lawyer_name)}${a.case_number ? ` · <a href="/dossier.html?n=${a.case_number}">${esc(a.case_number)}</a>` : ''}<small>${esc(domainName(a.domain))}${a.service ? ` · ${esc(a.service)}` : ''} — ${esc(a.reason)}</small></div>
+      <div class="w"><b>${esc(fmtDay(a.date))}</b> avec ${esc(a.lawyer_name)}${a.case_number ? ` · <a href="/dossier.html?n=${a.case_number}">${esc(a.case_number)}</a>` : ''}<small>${(a.domains || [a.domain]).map(domainName).map(esc).join(' + ')}${a.service ? ` · ${esc(a.service)}` : ''} — ${esc(a.reason)}</small></div>
       <div>${cancel ? `<button class="btn btn-quiet btn-sm" data-cancel="${a.id}">Annuler</button>` : `<span class="pill s-${a.status}">${{ confirme: 'Passé', annule: 'Annulé', termine: 'Terminé' }[a.status]}</span>`}</div></div>`;
     p.innerHTML = `<div class="card-head"><h2 style="margin:0;font-size:1.6rem">À venir</h2><a class="btn btn-sm" href="/rendez-vous.html">Nouveau rendez-vous</a></div>
       ${upcoming.length ? upcoming.map(a => row(a, true)).join('') : '<p class="muted">Aucun rendez-vous à venir.</p>'}

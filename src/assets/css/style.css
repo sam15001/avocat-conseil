@@ -905,3 +905,19 @@ h3 { font-family: var(--sans); font-weight: 600; letter-spacing: 0; }
 :root[data-theme="light"] .domain-card { background: rgba(255,255,255,.96); border-color: var(--line); --paper: #17181C; --muted: #6A6D74; --bronze: #8A6A32; color: var(--paper); }
 :root[data-theme="light"] .domain-card:hover { background: #fff; border-color: #8A6A32; }
 :root[data-theme="light"] .team-portraits .lawyer-portrait { border-color: var(--line); }
+
+/* Prise de rendez-vous : plusieurs pôles et prestations */
+.check-box { width: 18px; height: 18px; border: 1px solid var(--line); border-radius: 3px; flex-shrink: 0; margin-top: 2px; position: relative; }
+.service-option[aria-checked="true"] .check-box { border-color: var(--bronze); background: var(--bronze); }
+.service-option[aria-checked="true"] .check-box::after { content: ''; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid var(--ink); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.service-pick + .service-pick { margin-top: 40px; }
+.pick-summary { position: sticky; bottom: 12px; z-index: 5; margin-top: 28px; padding: 14px 18px; background: var(--ink-3); border: 1px solid var(--bronze-lo); border-left: 3px solid var(--bronze); font-size: .95rem; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.lawyer-group { margin: 28px 0 12px; font-size: 1.1rem; }
+.badge-best, .badge-part { display: inline-block; font-size: .75rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; margin-bottom: 8px; }
+.badge-best { background: var(--bronze); color: var(--ink); }
+.badge-part { border: 1px solid var(--line); color: var(--paper-dim); }
+.recap-list { margin: 0; padding-left: 18px; }
+.recap-list li { margin-bottom: 4px; }
+:root[data-theme="light"] .pick-summary { box-shadow: 0 8px 24px rgba(20,22,28,.12); }
+:root[data-theme="light"] .badge-best { color: #fff; }
+:root[data-theme="light"] .service-option[aria-checked="true"] .check-box::after { border-color: #fff; }

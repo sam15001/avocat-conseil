@@ -8,13 +8,27 @@ const params = new URLSearchParams(location.search);
 const KEY = 'ac_booking';
 let saved = {};
 try { saved = JSON.parse(sessionStorage.getItem(KEY) || '{}'); } catch { /* ignore */ }
+// Plusieurs pôles et plusieurs prestations : picks = [{ domain, name }]
+const pre = params.get('domaine');
 const state = {
   step: 1,
-  domain: params.get('domaine') || saved.domain || null,
-  service: params.get('domaine') ? null : saved.service || null,
+  domains: pre ? [pre] : saved.domains || (saved.domain ? [saved.domain] : []),
+  picks: pre ? [] : saved.picks || (saved.domain && saved.service ? [{ domain: saved.domain, name: saved.service }] : []),
   lawyer: params.get('avocat') ? Number(params.get('avocat')) : saved.lawyer || null,
   date: saved.date || null, time: saved.time || null, reason: saved.reason || '', case_number: params.get('dossier') || saved.case_number || ''
 };
+const picked = (d, n) => state.picks.some(p => p.domain === d && p.name === n);
+const priceOf = p => catalog.find(c => c.domain === p.domain && c.name === p.name);
+// Chaque pôle choisi doit avoir au moins une prestation
+const needComplete = () => state.domains.length > 0 && state.domains.every(d => state.picks.some(p => p.domain === d));
+// Nombre de pôles choisis couverts par les spécialités de l'avocat
+const coverage = l => state.domains.filter(d => l.specialties.includes(d)).length;
+function totalLine() {
+  const known = state.picks.map(priceOf).filter(x => x && x.price !== null && x.price !== undefined);
+  const sum = known.reduce((n, x) => n + Number(x.price || 0), 0);
+  const quote = state.picks.length - known.length;
+  return `${state.picks.length} prestation${state.picks.length > 1 ? 's' : ''}${sum ? ` · ${fmtPrice(sum)}` : ''}${quote ? `${sum ? ' + ' : ' · '}${quote} sur devis` : ''}`;
+}
 let lawyers = [];
 let me = null;
 let catalog = [];
@@ -37,27 +51,39 @@ function bindNav(next) {
 }
 
 function stepDomain() {
-  const d = DOMAIN_BY_SLUG[state.domain];
-  root.innerHTML = `<h2 tabindex="-1" style="font-size:var(--step-3)">Quel est votre besoin ?</h2>
-    <p class="muted">Choisissez le domaine de droit, puis la prestation qui correspond à votre situation.</p>
-    <div class="choice-grid domain-choices">${DOMAINS.map(x => `<button class="choice choice-icon" data-v="${x.slug}" aria-pressed="${state.domain === x.slug}">${ICONS[DOMAIN_ICON[x.slug]]}<strong>${esc(x.name)}</strong><small>${esc(x.tag)}</small></button>`).join('')}</div>
-    ${d ? `<div class="service-pick" id="services">
-      <h3>${esc(d.name)} : quelle prestation ?</h3>
+  const sel = state.domains.map(d => DOMAIN_BY_SLUG[d]).filter(Boolean);
+  root.innerHTML = `<h2 tabindex="-1" style="font-size:var(--step-3)">Quels sont vos besoins ?</h2>
+    <p class="muted">Choisissez un ou plusieurs pôles, puis les prestations qui correspondent à votre situation. Vous pouvez en cocher plusieurs.</p>
+    <div class="choice-grid domain-choices">${DOMAINS.map(x => `<button class="choice choice-icon" data-v="${x.slug}" aria-pressed="${state.domains.includes(x.slug)}">${ICONS[DOMAIN_ICON[x.slug]]}<strong>${esc(x.name)}</strong><small>${esc(x.tag)}</small></button>`).join('')}</div>
+    ${sel.map(d => `<div class="service-pick" id="services-${d.slug}">
+      <h3>${esc(d.name)} : quelles prestations ?</h3>
       ${[...groupServices(catalog, d.slug), { group: 'Autre', items: [{ name: OTHER_SERVICE, description: 'Votre situation ne figure pas dans la liste : l’avocat la qualifiera avec vous.', price: undefined }] }].map(g => `
       <h4 class="service-group">${esc(g.group)}</h4>
-      <div class="service-options" role="radiogroup" aria-label="${esc(g.group)}">
+      <div class="service-options" role="group" aria-label="${esc(g.group)}">
         ${g.items.map(x => `
-        <button class="service-option" role="radio" data-s="${esc(x.name)}" aria-checked="${state.service === x.name}"><span class="radio-dot" aria-hidden="true"></span>
+        <button class="service-option multi" role="checkbox" data-d="${d.slug}" data-s="${esc(x.name)}" aria-checked="${picked(d.slug, x.name)}"><span class="check-box" aria-hidden="true"></span>
           <span class="so-text"><strong>${esc(x.name)}</strong>${x.description ? `<small>${esc(x.description)}</small>` : ''}</span>
           ${x.price !== undefined ? `<span class="price-tag${x.price === 0 ? ' free' : ''}">${esc(fmtPrice(x.price, x.price_unit))}</span>` : ''}</button>`).join('')}
-      </div>`).join('')}</div>` : ''}
-    ${nav(false, 'Choisir un avocat', !!(state.domain && state.service))}`;
+      </div>`).join('')}</div>`).join('')}
+    ${state.picks.length ? `<div class="pick-summary" role="status"><b>Votre sélection :</b> ${state.domains.map(d => esc(domainName(d))).join(' + ')} · ${totalLine()}
+      ${needComplete() ? '' : `<br><span class="muted">Choisissez au moins une prestation pour : ${state.domains.filter(d => !state.picks.some(p => p.domain === d)).map(d => esc(domainName(d))).join(', ')}.</span>`}</div>` : ''}
+    ${nav(false, 'Choisir un avocat', needComplete())}`;
   $$('.domain-choices .choice', root).forEach(btn => btn.onclick = () => {
-    if (state.domain !== btn.dataset.v) { state.domain = btn.dataset.v; state.service = null; }
-    stepDomain(); save();
-    $('#services')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const v = btn.dataset.v;
+    if (state.domains.includes(v)) { state.domains = state.domains.filter(d => d !== v); state.picks = state.picks.filter(p => p.domain !== v); }
+    else state.domains = [...state.domains, v];
+    state.lawyer = me?.referent ? state.lawyer : null;
+    save(); stepDomain();
+    if (state.domains.includes(v)) $(`#services-${v}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
-  $$('.service-option', root).forEach(btn => btn.onclick = () => { state.service = btn.dataset.s; save(); setStep(2); });
+  $$('.service-option', root).forEach(btn => btn.onclick = () => {
+    const d = btn.dataset.d, n = btn.dataset.s;
+    if (picked(d, n)) state.picks = state.picks.filter(p => !(p.domain === d && p.name === n));
+    else if (state.picks.length >= 8) return toast('8 prestations au maximum par rendez-vous.', 'error');
+    else state.picks = [...state.picks, { domain: d, name: n }];
+    save();
+    const y = scrollY; stepDomain(); scrollTo(0, y);
+  });
   bindNav();
 }
 
@@ -69,25 +95,33 @@ function stepLawyer() {
       ${l && ref.active ? `<div class="referent-card">${l.photo ? `<img src="${esc(l.photo)}" alt="">` : `<span class="monogram">${esc(initials(l.display_name))}</span>`}
         <div><span class="muted" style="font-size:.85rem">Votre avocat référent</span><h3>Maître ${esc(l.display_name.replace(/^(Me|Maître)\s+/i, ''))}</h3>
         <p class="muted" style="margin:0">Il suit l’ensemble de vos dossiers et connaît votre situation : vos rendez-vous sont pris avec lui.</p></div></div>
-        ${l.accepts_appointments && l.has_availability ? nav(true, 'Choisir un créneau', true) : `<div class="empty" style="margin-top:20px"><h3>Pas de créneau en ligne</h3><p>Votre avocat ne prend pas de rendez-vous en ligne en ce moment. Déposez une demande : il vous recontactera.</p><a class="btn" href="/espace-client.html?nouvelle=${state.domain}">Déposer une demande</a></div>${nav(true)}`}`
+        ${l.accepts_appointments && l.has_availability ? nav(true, 'Choisir un créneau', true) : `<div class="empty" style="margin-top:20px"><h3>Pas de créneau en ligne</h3><p>Votre avocat ne prend pas de rendez-vous en ligne en ce moment. Déposez une demande : il vous recontactera.</p><a class="btn" href="/espace-client.html?nouvelle=${state.domains[0] || ''}">Déposer une demande</a></div>${nav(true)}`}`
       : `<div class="empty"><h3>Votre avocat référent n’est plus disponible</h3><p>Le cabinet va vous attribuer un nouvel avocat. Contactez-nous ou déposez une demande en attendant.</p><a class="btn" href="/contact.html">Contacter le cabinet</a></div>${nav(true)}`}`;
     state.lawyer = ref.id;
     bindNav();
     return;
   }
-  const available = lawyers.filter(l => l.accepts_appointments && l.has_availability);
-  const specialists = available.filter(l => l.specialties.includes(state.domain));
-  const others = available.filter(l => !l.specialties.includes(state.domain));
+  const available = lawyers.filter(l => l.accepts_appointments && l.has_availability)
+    .map(l => ({ ...l, cov: coverage(l) })).sort((a, b) => b.cov - a.cov || a.display_name.localeCompare(b.display_name));
+  const best = available.length ? available[0].cov : 0;
+  const top = best ? available.filter(l => l.cov === best) : [];
+  const partial = available.filter(l => l.cov > 0 && l.cov < best);
+  const others = available.filter(l => l.cov === 0);
+  // L'avocat qui couvre le plus de pôles est choisi d'office (premier par ordre alphabétique en cas d'égalité)
+  if (top.length && !available.some(l => l.id === state.lawyer)) { state.lawyer = top[0].id; state.date = state.time = null; save(); }
+  const n = state.domains.length;
   const card = l => `<button class="choice" data-v="${l.id}" aria-pressed="${state.lawyer === l.id}">
+      ${l.cov === best && best ? `<span class="badge-best">${n > 1 ? (l.cov === n ? `Couvre vos ${n} pôles` : `Couvre ${l.cov} pôles sur ${n}`) : 'Spécialiste'}</span>` : n > 1 && l.cov ? `<span class="badge-part">Couvre ${l.cov} pôle${l.cov > 1 ? 's' : ''} sur ${n}</span>` : ''}
       <strong>${esc(l.display_name)}</strong><small>${esc(l.title)} · ${l.specialties.map(domainName).map(esc).join(', ') || 'Généraliste'}</small>
       <small style="display:block;margin-top:6px">Reçoit le ${l.weekdays.sort().map(w => WEEKDAYS[w].toLowerCase()).join(', ')}</small></button>`;
   root.innerHTML = `<h2 tabindex="-1" style="font-size:var(--step-3)">Avec quel avocat ?</h2>
-    <p class="muted">${esc(domainName(state.domain))} · ${esc(state.service)}</p>
-    <p class="muted" style="font-size:.88rem">L’avocat choisi devient votre avocat référent : il suivra vos dossiers suivants.</p>
-    ${!available.length ? `<div class="empty"><h3>Aucun créneau ouvert</h3><p>Aucun avocat n'a encore publié ses disponibilités. Déposez une demande écrite : le cabinet vous proposera un rendez-vous.</p><a class="btn" href="/espace-client.html?nouvelle=${state.domain}">Déposer une demande</a></div>` : ''}
-    ${specialists.length ? `<div class="choice-grid">${specialists.map(card).join('')}</div>` : available.length ? '<p>Aucun spécialiste de ce domaine ne prend de rendez-vous en ce moment. Les avocats ci-dessous peuvent vous recevoir.</p>' : ''}
-    ${others.length && specialists.length ? '<h3 style="margin-top:32px;font-size:1.2rem">Autres avocats disponibles</h3>' : ''}
-    ${others.length ? `<div class="choice-grid">${others.map(card).join('')}</div>` : ''}
+    <p class="muted">${state.domains.map(d => esc(domainName(d))).join(' + ')} · ${totalLine()}</p>
+    <p class="muted" style="font-size:.88rem">${n > 1 ? 'Nous vous proposons en priorité l’avocat qui couvre le plus de vos pôles : un seul interlocuteur pour l’ensemble de votre situation. ' : ''}L’avocat choisi devient votre avocat référent : il suivra vos dossiers suivants.</p>
+    ${!available.length ? `<div class="empty"><h3>Aucun créneau ouvert</h3><p>Aucun avocat n'a encore publié ses disponibilités. Déposez une demande écrite : le cabinet vous proposera un rendez-vous.</p><a class="btn" href="/espace-client.html?nouvelle=${state.domains[0] || ''}">Déposer une demande</a></div>` : ''}
+    ${top.length ? `<h3 class="lawyer-group">${n > 1 ? 'Recommandé pour votre demande' : 'Spécialistes de ce pôle'}</h3><div class="choice-grid">${top.map(card).join('')}</div>`
+      : available.length ? '<p>Aucun spécialiste de ces pôles ne prend de rendez-vous en ce moment. Les avocats ci-dessous peuvent vous recevoir.</p>' : ''}
+    ${partial.length ? `<h3 class="lawyer-group">Couvrent une partie de vos besoins</h3><div class="choice-grid">${partial.map(card).join('')}</div>` : ''}
+    ${others.length ? `<h3 class="lawyer-group">${top.length ? 'Autres avocats disponibles' : 'Avocats disponibles'}</h3><div class="choice-grid">${others.map(card).join('')}</div>` : ''}
     ${nav(true, 'Choisir un créneau', !!state.lawyer)}`;
   $$('.choice', root).forEach(b => b.onclick = () => { state.lawyer = +b.dataset.v; state.date = state.time = null; setStep(3); });
   bindNav();
@@ -128,8 +162,8 @@ async function stepConfirm() {
   if (me) { try { cases = (await api('/cases')).cases.filter(c => !['cloture', 'refuse'].includes(c.status)); } catch { /* ignore */ } }
   root.innerHTML = `<h2 tabindex="-1" style="font-size:var(--step-3)">Vérifiez et confirmez</h2>
     <dl class="recap">
-      <div><dt>Domaine</dt><dd>${esc(domainName(state.domain))}</dd></div>
-      <div><dt>Prestation</dt><dd>${esc(state.service)}${(() => { const x = catalog.find(c => c.domain === state.domain && c.name === state.service); return x ? ` <span class="price-tag${x.price === 0 ? ' free' : ''}">${esc(fmtPrice(x.price, x.price_unit))}</span>` : ''; })()}</dd></div>
+      <div><dt>${state.domains.length > 1 ? 'Pôles' : 'Pôle'}</dt><dd>${state.domains.map(d => esc(domainName(d))).join(' + ')}</dd></div>
+      <div><dt>Prestation${state.picks.length > 1 ? 's' : ''}</dt><dd><ul class="recap-list">${state.picks.map(p => { const x = priceOf(p); return `<li>${esc(p.name)}${state.domains.length > 1 ? ` <span class="muted">· ${esc(domainName(p.domain))}</span>` : ''}${x ? ` <span class="price-tag${x.price === 0 ? ' free' : ''}">${esc(fmtPrice(x.price, x.price_unit))}</span>` : ''}</li>`; }).join('')}</ul>${state.picks.length > 1 ? `<span class="muted">${totalLine()}</span>` : ''}</dd></div>
       <div><dt>Avocat</dt><dd>${esc(lawyer.display_name)}</dd></div>
       <div><dt>Date</dt><dd>${esc(fmtDay(state.date))} à ${esc(state.time)}</dd></div>
     </dl>
@@ -145,7 +179,7 @@ async function stepConfirm() {
     if (!reason.checkValidity()) { reason.setAttribute('aria-invalid', 'true'); reason.focus(); return toast('Indiquez le motif du rendez-vous (5 caractères minimum).', 'error'); }
     await withLoading(e.currentTarget, async () => {
       try {
-        await api('/appointments', { method: 'POST', body: { domain: state.domain, service: state.service, lawyer_id: state.lawyer, date: state.date, time: state.time, reason: reason.value, case_number: $('#b-case')?.value || undefined } });
+        await api('/appointments', { method: 'POST', body: { domain: state.domains[0], services: state.picks, lawyer_id: state.lawyer, date: state.date, time: state.time, reason: reason.value, case_number: $('#b-case')?.value || undefined } });
         sessionStorage.removeItem(KEY);
         $$('#steps li').forEach(li => li.className = 'done');
         root.innerHTML = `<div class="empty" style="border-style:solid"><h3>Rendez-vous confirmé</h3>
@@ -164,7 +198,8 @@ async function stepConfirm() {
   catalog = await loadServices();
   me = await getMe();
   if (me?.referent) state.lawyer = me.referent.id;
-  if (state.lawyer && !state.domain) state.domain = lawyers.find(l => l.id === state.lawyer)?.specialties[0] || 'conseil';
-  const start = !(state.domain && state.service) ? 1 : state.lawyer && state.date && state.time ? 4 : state.lawyer ? 3 : 2;
+  if (params.get('avocat') && !state.domains.length) state.domains = [lawyers.find(l => l.id === state.lawyer)?.specialties[0] || 'conseil'];
+  state.picks = state.picks.filter(p => state.domains.includes(p.domain));
+  const start = !needComplete() ? 1 : state.lawyer && state.date && state.time ? 4 : state.lawyer ? 3 : 2;
   setStep(start);
 })();

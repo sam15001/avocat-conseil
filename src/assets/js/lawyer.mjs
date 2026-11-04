@@ -79,7 +79,7 @@ const loaders = {
     const past = appointments.filter(a => !(a.status === 'confirme' && a.date >= today)).reverse().slice(0, 30);
     const byDay = upcoming.reduce((m, a) => ((m[a.date] ||= []).push(a), m), {});
     const row = (a, actions) => `<div class="appt"><div class="t">${esc(a.time)}</div>
-      <div class="w"><b>${esc(a.client_name)}</b>${a.case_number ? ` · <a href="/dossier.html?n=${a.case_number}">${esc(a.case_number)}</a>` : ''}<small>${esc(domainName(a.domain))}${a.service ? ` · ${esc(a.service)}` : ''} — ${esc(a.reason)}</small></div>
+      <div class="w"><b>${esc(a.client_name)}</b>${a.case_number ? ` · <a href="/dossier.html?n=${a.case_number}">${esc(a.case_number)}</a>` : ''}<small>${(a.domains || [a.domain]).map(domainName).map(esc).join(' + ')}${a.service ? ` · ${esc(a.service)}` : ''} — ${esc(a.reason)}</small></div>
       <div style="display:flex;gap:6px">${actions ? `<button class="btn btn-ghost btn-sm" data-done="${a.id}">Terminé</button><button class="btn btn-quiet btn-sm" data-cancel="${a.id}">Annuler</button>` : `<span class="pill s-${a.status}">${{ confirme: 'Non clôturé', annule: 'Annulé', termine: 'Terminé' }[a.status]}</span>`}</div></div>`;
     p.innerHTML = `<div class="grid-main"><div>
         <h2 style="font-size:1.6rem">À venir</h2>

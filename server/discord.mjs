@@ -117,8 +117,9 @@ export const embeds = {
       { name: 'Citoyen', value: `${client.rp_name || client.global_name || client.username} (${mention(client.discord_id)})`, inline: true },
       { name: 'Avocat', value: lawyerName, inline: true },
       { name: 'Date', value: formatDateFr(a.date, a.time), inline: true },
-      { name: 'Domaine', value: domainName(a.domain), inline: true },
-      ...(a.service ? [{ name: 'Prestation', value: trunc(a.service, 200), inline: true }] : []),
+      { name: a.domains?.length > 1 ? 'Domaines' : 'Domaine', value: (a.domains?.length ? a.domains : [a.domain]).map(domainName).join(', '), inline: true },
+      ...(a.services?.length > 1 ? [{ name: `Prestations (${a.services.length})`, value: trunc(a.services.map(x => `• ${x.name}`).join('\n'), 1000) }]
+        : a.service ? [{ name: 'Prestation', value: trunc(a.service, 200), inline: true }] : []),
       ...(a.case_number ? [{ name: 'Dossier', value: a.case_number, inline: true }] : []),
       { name: 'Motif', value: trunc(a.reason, 500) }
     ]

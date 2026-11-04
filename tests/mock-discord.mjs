@@ -11,6 +11,7 @@ const USERS = {
   avocat1:     { id: '500000000000000004', username: 'harvey', global_name: 'Harvey Collins', roles: [R.avocat] },
   avocat2:     { id: '500000000000000005', username: 'nadia', global_name: 'Nadia Okafor', roles: [R.avocat] },
   responsable: { id: '500000000000000006', username: 'marcus', global_name: 'Marcus Hale', roles: [R.responsable] },
+  citoyen3:    { id: '500000000000000008', username: 'jade', global_name: 'Jade Morel', roles: [] },
   outsider:    { id: '500000000000000007', username: 'random', global_name: 'Random', roles: null }
 };
 let nextUser = 'citoyen';

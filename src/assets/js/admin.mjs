@@ -110,7 +110,7 @@ const loaders = {
     const past = appointments.filter(a => !(a.status === 'confirme' && a.date >= today)).reverse().slice(0, 40);
     const byDay = upcoming.reduce((m, a) => ((m[a.date] ||= []).push(a), m), {});
     const row = (a, act) => `<div class="appt"><div class="t">${esc(a.time)}</div>
-      <div class="w"><b>${esc(a.client_name)}</b> avec ${esc(a.lawyer_name)}${a.case_number ? ` · <a href="/dossier.html?n=${a.case_number}">${esc(a.case_number)}</a>` : ''}<small>${esc(domainName(a.domain))}${a.service ? ` · ${esc(a.service)}` : ''} — ${esc(a.reason)}</small></div>
+      <div class="w"><b>${esc(a.client_name)}</b> avec ${esc(a.lawyer_name)}${a.case_number ? ` · <a href="/dossier.html?n=${a.case_number}">${esc(a.case_number)}</a>` : ''}<small>${(a.domains || [a.domain]).map(domainName).map(esc).join(' + ')}${a.service ? ` · ${esc(a.service)}` : ''} — ${esc(a.reason)}</small></div>
       <div style="display:flex;gap:6px">${act ? `<button class="btn btn-ghost btn-sm" data-done="${a.id}">Terminé</button><button class="btn btn-quiet btn-sm" data-cancel="${a.id}">Annuler</button>` : `<span class="pill s-${a.status}">${{ confirme: 'Non clôturé', annule: 'Annulé', termine: 'Terminé' }[a.status]}</span>`}</div></div>`;
     p.innerHTML = `<div class="card"><h2>À venir</h2>${Object.keys(byDay).length ? Object.entries(byDay).map(([d, list]) => `<div class="agenda-day"><h4>${esc(d === today ? "Aujourd'hui" : fmtDay(d))}</h4>${list.map(a => row(a, true)).join('')}</div>`).join('') : '<p class="muted">Aucun rendez-vous à venir.</p>'}</div>
       <div class="card"><h2>Passés et annulés</h2>${past.length ? past.map(a => row(a, false)).join('') : '<p class="muted">Aucun.</p>'}</div>`;
