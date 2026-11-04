@@ -25,13 +25,13 @@ export function cleanPhoto(v) {
 
 // Photo envoyée depuis le site : undefined = inchangée, null = supprimée, { mime, data(base64) } = nouvelle
 const PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
-export function cleanPhotoUpload(p) {
+export function cleanPhotoUpload(p, maxBytes = 2 * 1024 * 1024) {
   if (p === undefined) return undefined;
   if (p === null) return null;
   if (!p || !PHOTO_TYPES.includes(p.mime)) fail(400, 'Photo : formats acceptés PNG, JPG ou WEBP.');
   const data = Buffer.from(String(p.data || ''), 'base64');
   if (!data.length) fail(400, 'Photo vide.');
-  if (data.length > 2 * 1024 * 1024) fail(413, 'Photo trop lourde (2 Mo maximum).');
+  if (data.length > maxBytes) fail(413, `Photo trop lourde (${Math.round(maxBytes / 1048576)} Mo maximum).`);
   const head = data.subarray(0, 4).toString('hex');
   const valid = (p.mime === 'image/png' && head === '89504e47') || (p.mime === 'image/jpeg' && head.startsWith('ffd8ff'))
     || (p.mime === 'image/webp' && data.subarray(8, 12).toString() === 'WEBP');

@@ -52,11 +52,12 @@ route('GET', '/api/auth/callback', async ({ req, query }) => {
   if (!me.ok) return fail('discord');
 
   const settings = await getSettings({ fresh: true });
-  let discordRole = 0;
+  let discordRole = 0, nick = null;
   if (process.env.DISCORD_GUILD_ID) {
     const member = await discordFetch(`/users/@me/guilds/${process.env.DISCORD_GUILD_ID}/member`, { bot: false, token: accessToken });
     if (member.ok) {
       discordRole = roleFromDiscordRoles(member.data.roles || [], settings);
+      nick = typeof member.data.nick === 'string' && member.data.nick.trim() ? member.data.nick.trim().slice(0, 80) : null;
     } else if (process.env.DISCORD_REQUIRE_MEMBER !== 'false') {
       return fail('serveur');
     }
@@ -67,6 +68,8 @@ route('GET', '/api/auth/callback', async ({ req, query }) => {
   const existing = users.find(u => u.discord_id === d.id);
   const fields = { discord_id: d.id, username: d.username, global_name: d.global_name || null, avatar: d.avatar || null, discord_role: discordRole, last_login: now() };
   let user;
+  // Pseudo sur le serveur du cabinet = nom RP, tant que la personne n'a pas choisi le sien sur le site
+  if (nick && !existing?.rp_name) fields.rp_name = nick;
   if (existing) { await update('users', existing.id, fields); user = { ...existing, ...fields }; }
   else user = await insert('users', fields);
 

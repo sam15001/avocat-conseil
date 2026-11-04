@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import site from '../site.config.mjs';
 import { DOMAINS } from '../shared/domains.mjs';
+import { LAW, LAW_SOURCE } from '../shared/legal.mjs';
 import { ICONS, DOMAIN_ICON, crest } from '../src/assets/js/icons.mjs';
 
 const SRC = 'src', OUT = 'dist';
@@ -60,7 +61,7 @@ const footer = () => `
       </div>
       <div><h4>Le cabinet</h4><ul>
         <li><a href="/cabinet.html">Présentation</a></li><li><a href="/equipe.html">Notre équipe</a></li>
-        <li><a href="/honoraires.html">Honoraires</a></li><li><a href="/rendez-vous.html">Prendre rendez-vous</a></li><li><a href="/recrutement.html">Recrutement</a></li><li><a href="/faq.html">Questions fréquentes</a></li></ul></div>
+        <li><a href="/honoraires.html">Honoraires</a></li><li><a href="/rendez-vous.html">Prendre rendez-vous</a></li><li><a href="/recrutement.html">Recrutement</a></li><li><a href="/faq.html">Questions fréquentes</a></li><li><a href="https://legifrat.fr/" target="_blank" rel="noopener">Législation de FratWorld (LégiFrat)</a></li></ul></div>
       <div><h4>Expertises</h4><ul>
         ${DOMAINS.map(d => `<li><a href="/expertises/${d.slug}.html">${esc(d.name)}</a></li>`).join('')}</ul></div>
       <div><h4>Nous trouver</h4><ul>
@@ -104,7 +105,7 @@ ${footer()}
 }
 
 const fill = html => html
-  .replace(/\{\{photo:(\w+)\}\}/g, (_, k) => esc(site.photos[k] || ''))
+  .replace(/\{\{photo:(\w+)\}\}/g, (_, k) => `${esc(site.photos[k] || '')}" data-site-photo="${k}`)
   .replace(/\{\{site:(\w+)\}\}/g, (_, k) => esc(Array.isArray(site[k]) ? site[k].join(', ') : site[k]))
   .replace(/\{\{arrow\}\}/g, ARROW)
   .replace(/\{\{mark\}\}/g, () => MARK)
@@ -135,7 +136,7 @@ for (const d of DOMAINS) {
   const others = DOMAINS.filter(o => o.slug !== d.slug);
   const body = `
 <section class="page-head">
-  <figure class="page-head-photo" aria-hidden="true"><img src="${esc(site.photos[PHOTO_FOR[d.slug]])}" alt=""></figure>
+  <figure class="page-head-photo" aria-hidden="true"><img src="${esc(site.photos[PHOTO_FOR[d.slug]])}" data-site-photo="${PHOTO_FOR[d.slug]}" alt=""></figure>
   <div class="wrap">
     <nav class="breadcrumb" aria-label="Fil d'Ariane"><a href="/">Accueil</a><span>/</span><a href="/expertises.html">Expertises</a><span>/</span><span>${esc(d.name)}</span></nav>
     <h1>${esc(d.name)}</h1>
@@ -163,6 +164,16 @@ for (const d of DOMAINS) {
     </aside>
   </div>
 </section>
+${(LAW[d.slug] || []).length ? `<section class="section-tight law-section" id="cadre-legal">
+  <div class="wrap">
+    <p class="law-kicker">Législation de FratWorld</p>
+    <h2 style="font-size:var(--step-3)">Ce que dit la loi</h2>
+    <p class="muted" style="max-width:720px">Les textes que nos avocats appliquent dans ce domaine. Résumés à jour au ${LAW_SOURCE.date.split('-').reverse().join('/')} ; seul le texte officiel publié sur <a href="${LAW_SOURCE.url}" target="_blank" rel="noopener">LégiFrat</a> fait foi.</p>
+    <div class="law-grid">${LAW[d.slug].map(l => `<a class="law-card" href="${esc(l.url)}" target="_blank" rel="noopener">
+      <span class="law-ref">${esc(l.ref)}</span><strong>${esc(l.title)}</strong><span class="law-sum">${esc(l.summary)}</span>
+      ${l.penalty ? `<span class="law-pen">Peine maximale : ${esc(l.penalty)}</span>` : ''}</a>`).join('')}</div>
+  </div>
+</section>` : ''}
 <section class="section-tight">
   <div class="wrap">
     <h2 style="font-size:var(--step-3)">Autres domaines</h2>

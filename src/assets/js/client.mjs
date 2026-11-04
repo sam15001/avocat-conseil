@@ -180,14 +180,20 @@ const loaders = {
         <p class="muted">Avocat référent : <b style="color:var(--paper)">${me.referent ? esc(me.referent.name) : 'pas encore attribué'}</b>.</p>
         <p class="muted">Membre depuis le ${fmtDate(me.created_at)}.</p></div>
       <form class="card form" id="profile-form" novalidate><h2 style="margin:0">Identité RP</h2>
-        <p class="muted" style="margin:0">Ces informations sont transmises à votre avocat.</p>
-        <div class="field"><label for="p-rp">Nom et prénom RP</label><input class="input" id="p-rp" name="rp_name" maxlength="80" value="${esc(me.rp_name || '')}"></div>
+        <p class="muted" style="margin:0">Ce nom remplace votre pseudo Discord partout sur le site (dossiers, rendez-vous, notifications). Il est transmis à votre avocat.</p>
+        <div class="field"><label for="p-rp">Nom et prénom RP</label><input class="input" id="p-rp" name="rp_name" maxlength="80" placeholder="ex. Michael Castellano" value="${esc(me.rp_name || '')}"></div>
         <div class="field"><label for="p-phone">Téléphone en jeu</label><input class="input" id="p-phone" name="phone" maxlength="30" value="${esc(me.phone || '')}"></div>
         <div><button class="btn" type="submit">Enregistrer</button></div></form></div>`;
     $('#profile-form').onsubmit = async e => {
       e.preventDefault();
       await withLoading($('button', e.target), async () => {
-        try { await api('/me', { method: 'PATCH', body: Object.fromEntries(new FormData(e.target)) }); toast('Profil enregistré.'); }
+        try {
+          const body = Object.fromEntries(new FormData(e.target));
+          await api('/me', { method: 'PATCH', body });
+          me.rp_name = body.rp_name.trim() || null;
+          document.querySelectorAll('.account-name').forEach(n => { n.textContent = me.rp_name || me.name; });
+          toast('Profil enregistré. Ce nom est maintenant affiché partout sur le site.');
+        }
         catch (err) { toast(err.message, 'error'); }
       });
     };

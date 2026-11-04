@@ -794,3 +794,29 @@ dialog.modal { overflow: hidden; }
   .day b { font-size: 1.25rem; }
   .slots { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
 }
+
+/* Images des actualités et photos du site */
+.news-img { margin: 0 0 6px; aspect-ratio: 16/9; overflow: hidden; background: var(--ink-2); border: 1px solid var(--line-soft); }
+.news-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.article-cover { max-width: 960px; aspect-ratio: 16/9; margin: 0 0 40px; }
+.site-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+.site-photo-card { border: 1px solid var(--line); background: var(--ink-2); display: flex; flex-direction: column; }
+.site-photo-card .prev { aspect-ratio: 16/10; overflow: hidden; background: var(--ink); }
+.site-photo-card .prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.site-photo-card .body { padding: 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.site-photo-card h3 { margin: 0; font-size: 1.15rem; }
+.site-photo-card .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 8px; }
+.img-pick { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.img-pick .prev { width: 160px; aspect-ratio: 16/9; background: var(--ink); border: 1px solid var(--line-soft); display: grid; place-items: center; overflow: hidden; color: var(--paper-dim); }
+.img-pick .prev img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Cadre légal FratWorld (pages domaines) */
+.law-section { border-top: 1px solid var(--line); }
+.law-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); margin-top: 28px; }
+.law-card { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--ink); padding: 22px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--paper); transition: background .25s; }
+.law-card:hover { background: var(--ink-2); }
+.law-ref { font-family: var(--display); color: var(--bronze); font-size: 1.05rem; }
+.law-card strong { font-weight: 600; }
+.law-sum { color: var(--paper-dim); font-size: .92rem; line-height: 1.55; }
+.law-pen { margin-top: auto; padding-top: 8px; font-size: .82rem; color: var(--muted); border-top: 1px solid var(--line-soft); }
+.law-kicker { font-size: .85rem; font-weight: 500; color: var(--bronze); letter-spacing: .02em; margin: 0 0 10px; }

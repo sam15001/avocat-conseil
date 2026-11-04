@@ -1,10 +1,10 @@
 import { route } from '../router.mjs';
 import { json, readJson, str, int, fail } from '../http.mjs';
-import { all, get, insert, allAvailability, getBlob } from '../store.mjs';
+import { all, get, insert, allAvailability, getBlob, rtdb } from '../store.mjs';
 import { notify, embeds } from '../discord.mjs';
 import { freeSlots } from '../services.mjs';
 import { photoUrl } from './lawyer.mjs';
-import { DOMAIN_BY_SLUG } from '../../shared/domains.mjs';
+import { DOMAIN_BY_SLUG, SITE_PHOTOS } from '../../shared/domains.mjs';
 
 route('GET', '/api/public/lawyers', async ({ query }) => {
   const domain = query.get('domain');
@@ -37,11 +37,39 @@ route('GET', '/api/public/lawyers/:id/photo', async ({ params }) => {
   } });
 });
 
+const imageResponse = (data, mime) => new Response(Buffer.from(data, 'base64'), { headers: {
+  'content-type': mime, 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff',
+  'content-security-policy': "default-src 'none'; sandbox" } });
+
+// Photos du site (locaux, bureaux…) envoyées depuis l'administration : { clé: version }
+route('GET', '/api/public/site-photos', async () => {
+  const meta = (await rtdb.get('site_photos')) || {};
+  const photos = Object.fromEntries(Object.entries(meta).filter(([k, v]) => v && SITE_PHOTOS.some(p => p.key === k)).map(([k, v]) => [k, v.v]));
+  return json({ photos });
+});
+
+route('GET', '/api/public/site-photo/:key', async ({ params }) => {
+  if (!SITE_PHOTOS.some(p => p.key === params.key)) fail(404, 'Photo introuvable.');
+  const meta = await rtdb.get(`site_photos/${params.key}`);
+  const data = meta ? await getBlob(`site/${params.key}`) : null;
+  if (!data) fail(404, 'Photo introuvable.');
+  return imageResponse(data, meta.mime);
+});
+
+route('GET', '/api/public/news/:id/image', async ({ params }) => {
+  const n = await get('news', int(params.id, 'id'));
+  const data = n && n.published && n.image_mime ? await getBlob(`news/${n.id}`) : null;
+  if (!data) fail(404, 'Image introuvable.');
+  return imageResponse(data, n.image_mime);
+});
+
+export const newsImage = n => n.image_mime ? `/api/public/news/${n.id}/image?v=${n.image_v || 1}` : null;
+
 const publishedNews = async () => (await all('news')).filter(n => n.published).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
 
 route('GET', '/api/public/news', async ({ query }) => {
   const limit = Math.min(int(query.get('limit') || 20, 'limit'), 50);
-  const news = (await publishedNews()).slice(0, limit).map(({ slug, title, category, excerpt, created_at }) => ({ slug, title, category, excerpt, created_at }));
+  const news = (await publishedNews()).slice(0, limit).map(n => ({ slug: n.slug, title: n.title, category: n.category, excerpt: n.excerpt, created_at: n.created_at, image: newsImage(n) }));
   return json({ news });
 });
 
@@ -49,7 +77,7 @@ route('GET', '/api/public/news/:slug', async ({ params }) => {
   const n = (await publishedNews()).find(x => x.slug === params.slug);
   if (!n) fail(404, 'Article introuvable.');
   const { slug, title, category, excerpt, body, created_at } = n;
-  return json({ article: { slug, title, category, excerpt, body, created_at } });
+  return json({ article: { slug, title, category, excerpt, body, created_at, image: newsImage(n) } });
 });
 
 route('GET', '/api/public/slots', async ({ query }) => {

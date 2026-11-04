@@ -1,12 +1,14 @@
 import { route } from '../router.mjs';
 import { json, readJson, str, int, fail } from '../http.mjs';
-import { all, get, insert, update, remove, rtdb, addEvent, now, allAvailability } from '../store.mjs';
+import { all, get, insert, update, remove, rtdb, addEvent, now, allAvailability, putBlob, delBlob } from '../store.mjs';
 import { stats, displayName, isClosed } from '../services.mjs';
 import { notify, discordFetch, postMessage, welcomeMessage } from '../discord.mjs';
 import { SETTING_KEYS, getSettings, invalidateSettings } from '../config.mjs';
 import crypto from 'node:crypto';
 import { cleanSpecialties, saveAvailability, getAvailability, cleanIdentity, cleanPhotoUpload, savePhoto, photoUrl } from './lawyer.mjs';
-import { DOMAIN_BY_SLUG, STATUS_BY_KEY } from '../../shared/domains.mjs';
+import { DOMAIN_BY_SLUG, STATUS_BY_KEY, SITE_PHOTOS } from '../../shared/domains.mjs';
+import { newsImage } from './public.mjs';
+import site from '../../site.config.mjs';
 
 // ── Dossiers
 route('GET', '/api/admin/cases', async ({ query }) => {
@@ -253,30 +255,75 @@ route('PATCH', '/api/admin/messages/:id', async ({ req, params }) => {
 
 // ── Actualités
 const slugify = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
-const newsRow = n => ({ id: n.id, slug: n.slug, title: n.title, category: n.category, excerpt: n.excerpt, body: n.body, published: n.published, created_at: n.created_at });
+const newsRow = n => ({ id: n.id, slug: n.slug, title: n.title, category: n.category, excerpt: n.excerpt, body: n.body, published: n.published, created_at: n.created_at,
+  image: n.image_mime ? `/api/admin/news/${n.id}/image?v=${n.image_v || 1}` : null });
+const IMG_MAX = 3 * 1024 * 1024;
+// Image d'article : undefined = inchangée, null = retirée, { mime, data } = nouvelle
+async function saveNewsImage(id, image) {
+  const img = cleanPhotoUpload(image, IMG_MAX);
+  if (img === undefined) return;
+  if (img === null) { await delBlob(`news/${id}`); await update('news', id, { image_mime: null, image_v: null }); return; }
+  await putBlob(`news/${id}`, img.data.toString('base64'));
+  await update('news', id, { image_mime: img.mime, image_v: Date.now() });
+}
+
+// Aperçu dans l'administration (y compris pour un article non publié)
+route('GET', '/api/admin/news/:id/image', async ({ params }) => {
+  const n = await get('news', int(params.id, 'id'));
+  const data = n?.image_mime ? await rtdb.get(`blobs/news/${n.id}`) : null;
+  if (!data) fail(404, 'Image introuvable.');
+  return new Response(Buffer.from(data, 'base64'), { headers: { 'content-type': n.image_mime, 'cache-control': 'private, max-age=31536000', 'x-content-type-options': 'nosniff' } });
+}, { auth: 2 });
 
 route('GET', '/api/admin/news', async () => json({ news: (await all('news')).sort(newest).map(newsRow) }), { auth: 2 });
 
 route('POST', '/api/admin/news', async ({ req, user }) => {
-  const b = await readJson(req, 40000);
+  const b = await readJson(req, 5 * 1024 * 1024);
   const title = str(b.title, 'Titre', { max: 160 });
   const n = await insert('news', { slug: slugify(title) + '-' + Date.now().toString(36).slice(-4), title, category: str(b.category, 'Catégorie', { max: 60 }),
     excerpt: str(b.excerpt, 'Résumé', { max: 300 }), body: str(b.body, 'Contenu', { max: 20000 }), published: b.published !== false, author_id: user.id });
+  await saveNewsImage(n.id, b.image ?? undefined);
   return json({ news: { id: n.id, slug: n.slug } }, 201);
 }, { auth: 2 });
 
 route('PATCH', '/api/admin/news/:id', async ({ req, params }) => {
-  const b = await readJson(req, 40000);
+  const b = await readJson(req, 5 * 1024 * 1024);
   const id = int(params.id, 'id');
   if (!await get('news', id)) fail(404, 'Article introuvable.');
   await update('news', id, { title: str(b.title, 'Titre', { max: 160 }), category: str(b.category, 'Catégorie', { max: 60 }), excerpt: str(b.excerpt, 'Résumé', { max: 300 }),
     body: str(b.body, 'Contenu', { max: 20000 }), published: b.published !== false });
+  await saveNewsImage(id, b.image);
   return json({ ok: true });
 }, { auth: 2 });
 
 route('DELETE', '/api/admin/news/:id', async ({ params }) => {
   await remove('news', int(params.id, 'id'));
+  await delBlob(`news/${int(params.id, 'id')}`);
   return json({ ok: true });
+}, { auth: 2 });
+
+// ── Photos du site (locaux, bureaux, tribunal…)
+route('GET', '/api/admin/site-photos', async () => {
+  const meta = (await rtdb.get('site_photos')) || {};
+  return json({ photos: SITE_PHOTOS.map(p => ({ ...p, custom: !!meta[p.key],
+    url: meta[p.key] ? `/api/public/site-photo/${p.key}?v=${meta[p.key].v}` : site.photos[p.key] })) });
+}, { auth: 2 });
+
+route('PUT', '/api/admin/site-photos/:key', async ({ req, params }) => {
+  if (!SITE_PHOTOS.some(p => p.key === params.key)) fail(404, 'Photo inconnue.');
+  const img = cleanPhotoUpload((await readJson(req, 5 * 1024 * 1024)).image, IMG_MAX);
+  if (!img) fail(400, 'Choisissez une image.');
+  await putBlob(`site/${params.key}`, img.data.toString('base64'));
+  const v = Date.now();
+  await rtdb.put(`site_photos/${params.key}`, { mime: img.mime, v });
+  return json({ ok: true, url: `/api/public/site-photo/${params.key}?v=${v}` });
+}, { auth: 2 });
+
+route('DELETE', '/api/admin/site-photos/:key', async ({ params }) => {
+  if (!SITE_PHOTOS.some(p => p.key === params.key)) fail(404, 'Photo inconnue.');
+  await rtdb.del(`site_photos/${params.key}`);
+  await delBlob(`site/${params.key}`);
+  return json({ ok: true, url: site.photos[params.key] });
 }, { auth: 2 });
 
 // ── Paramètres Discord (direction)

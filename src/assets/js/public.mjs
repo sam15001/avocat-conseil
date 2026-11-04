@@ -50,7 +50,7 @@ async function loadNews() {
   try {
     const { news } = await api(`/public/news?limit=${list.dataset.news}`);
     list.innerHTML = news.length ? news.map(n => `<a class="news-item" href="/actualites.html?a=${encodeURIComponent(n.slug)}">
-      <span class="cat">${esc(n.category)}</span><h3>${esc(n.title)}</h3><p>${esc(n.excerpt)}</p><time datetime="${esc(n.created_at)}">${fmtDate(n.created_at)}</time></a>`).join('')
+      ${n.image ? `<figure class="news-img"><img src="${esc(n.image)}" alt="" loading="lazy"></figure>` : ''}<span class="cat">${esc(n.category)}</span><h3>${esc(n.title)}</h3><p>${esc(n.excerpt)}</p><time datetime="${esc(n.created_at)}">${fmtDate(n.created_at)}</time></a>`).join('')
       : '<p class="muted">Aucune actualité publiée pour le moment.</p>';
   } catch { list.innerHTML = '<p class="muted">Les actualités sont momentanément indisponibles.</p>'; }
 }
@@ -62,7 +62,7 @@ async function showArticle(slug) {
     document.title = `${a.title} — AVOCAT & CONSEIL`;
     $('#news-head .wrap').innerHTML = `<nav class="breadcrumb" aria-label="Fil d'Ariane"><a href="/">Accueil</a><span>/</span><a href="/actualites.html">Actualités</a><span>/</span><span>${esc(a.category)}</span></nav>
       <h1>${esc(a.title)}</h1><p class="lede">${esc(a.excerpt)}</p><p class="muted">${fmtDate(a.created_at)}</p>`;
-    root.innerHTML = `<article class="prose article-body" style="max-width:720px">${a.body.split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join('')}</article>
+    root.innerHTML = `${a.image ? `<figure class="photo article-cover"><img src="${esc(a.image)}" alt=""></figure>` : ''}<article class="prose article-body" style="max-width:720px">${a.body.split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join('')}</article>
       <p style="margin-top:48px"><a class="btn btn-ghost" href="/actualites.html">Toutes les actualités</a></p>`;
   } catch { root.innerHTML = '<div class="empty"><h3>Article introuvable</h3><a class="btn btn-ghost" href="/actualites.html">Toutes les actualités</a></div>'; }
 }

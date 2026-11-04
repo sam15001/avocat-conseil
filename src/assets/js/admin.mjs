@@ -1,13 +1,13 @@
 // Administration du cabinet (responsable juridique et direction)
-import { api, $, $$, esc, toast, tabs, requireRole, roleName, statusPill, domainName, fmtDate, fmtDateTime, fmtDay, fmtShort, withLoading, modal, confirmModal, dashShell, discordBadge, kpiCard, initials, ICONS } from './app.mjs';
+import { api, $, $$, esc, toast, resizeImage, tabs, requireRole, roleName, statusPill, domainName, fmtDate, fmtDateTime, fmtDay, fmtShort, withLoading, modal, confirmModal, dashShell, discordBadge, kpiCard, initials, ICONS } from './app.mjs';
 import { lawyerFields, bindPhoto, readLawyerForm } from './lawyer-form.mjs';
-import { DOMAINS, STATUSES, WEEKDAYS, ROLES, PRICE_UNITS, fmtPrice } from './domains.mjs';
+import { DOMAINS, STATUSES, WEEKDAYS, ROLES, PRICE_UNITS, fmtPrice, SITE_PHOTOS } from './domains.mjs';
 
 const app = $('#app');
 const me = await requireRole(2, app);
 
 const TABS = [['tableau', 'Tableau de bord', 'dashboard'], ['dossiers', 'Dossiers', 'folder'], ['rendez-vous', 'Rendez-vous', 'calendar'], ['avocats', 'Avocats', 'scales'], ['prestations', 'Prestations', 'briefcase'],
-  ['clients', 'Clients', 'users'], ['candidatures', 'Candidatures', 'inbox'], ['messages', 'Messages', 'message'], ['actualites', 'Actualités', 'news'],
+  ['clients', 'Clients', 'users'], ['candidatures', 'Candidatures', 'inbox'], ['messages', 'Messages', 'message'], ['actualites', 'Actualités', 'news'], ['photos', 'Photos du site', 'camera'],
   ...(me?.role >= 3 ? [['parametres', 'Paramètres', 'settings']] : [])];
 
 function render() {
@@ -20,7 +20,7 @@ function render() {
   });
   const titles = Object.fromEntries(TABS.map(([k, l]) => [k, l]));
   const subs = { tableau: "Vue d'ensemble du cabinet", dossiers: 'Recherche, filtres et attribution', 'rendez-vous': 'Agenda de tous les avocats', avocats: 'Fiches, coordonnées, photos et accès', prestations: 'Catalogue et tarifs, par module',
-    clients: 'Comptes citoyens et historique', candidatures: 'Candidatures reçues depuis la page Recrutement', messages: 'Messages du formulaire de contact', actualites: 'Articles publiés sur le site', parametres: 'Salons et rôles Discord' };
+    clients: 'Comptes citoyens et historique', candidatures: 'Candidatures reçues depuis la page Recrutement', messages: 'Messages du formulaire de contact', actualites: 'Articles publiés sur le site', photos: 'Locaux, bureaux, tribunal : vos propres photos', parametres: 'Salons et rôles Discord' };
   tabs(app, name => { $('.dash-head h1').textContent = titles[name]; $('.dash-head .sub').textContent = subs[name]; return loaders[name](); });
 }
 
@@ -235,6 +235,34 @@ const loaders = {
     $$('[data-msg]', p).forEach(c => c.onchange = async () => { await api(`/admin/messages/${c.dataset.msg}`, { method: 'PATCH', body: { handled: c.checked } }).catch(e => toast(e.message, 'error')); loaders.messages(); });
   },
 
+  async photos() {
+    const p = panel('photos');
+    const { photos } = await api('/admin/site-photos');
+    p.innerHTML = `<p class="muted" style="margin:0 0 20px">Remplacez les illustrations par vos captures en jeu. Les images sont réduites automatiquement avant l'envoi. Format paysage conseillé.</p>
+      <div class="site-photos">${photos.map(ph => `<div class="site-photo-card" data-key="${ph.key}">
+        <div class="prev"><img src="${esc(ph.url)}" alt=""></div>
+        <div class="body"><h3>${esc(ph.label)}</h3><p class="muted" style="margin:0;font-size:.85rem">${esc(ph.where)}</p>
+          <p style="margin:0;font-size:.8rem;color:${ph.custom ? 'var(--ok)' : 'var(--muted)'}">${ph.custom ? 'Votre photo' : 'Illustration par défaut'}</p>
+          <div class="actions"><input type="file" accept="image/png,image/jpeg,image/webp" hidden>
+            <button class="btn btn-sm" data-pick>${ph.custom ? 'Remplacer' : 'Mettre ma photo'}</button>
+            ${ph.custom ? '<button class="btn btn-quiet btn-sm" data-reset>Remettre l’illustration</button>' : ''}</div></div></div>`).join('')}</div>`;
+    $$('.site-photo-card', p).forEach(card => {
+      const key = card.dataset.key, input = $('input', card);
+      $('[data-pick]', card).onclick = () => input.click();
+      input.onchange = () => withLoading($('[data-pick]', card), async () => {
+        const f = input.files[0]; input.value = '';
+        if (!f) return;
+        try { const img = await resizeImage(f); await api(`/admin/site-photos/${key}`, { method: 'PUT', body: { image: { mime: img.mime, data: img.data } } }); toast('Photo mise en ligne sur le site.'); loaders.photos(); }
+        catch (e) { toast(e.message, 'error'); }
+      });
+      const reset = $('[data-reset]', card);
+      if (reset) reset.onclick = async () => {
+        if (!await confirmModal('Remettre l’illustration', 'Votre photo sera supprimée et l’illustration d’origine reviendra sur le site.', { confirm: 'Remettre', danger: true })) return;
+        try { await api(`/admin/site-photos/${key}`, { method: 'DELETE' }); toast('Illustration d’origine remise.'); loaders.photos(); } catch (e) { toast(e.message, 'error'); }
+      };
+    });
+  },
+
   async actualites() {
     const p = panel('actualites');
     p.innerHTML = '<span class="loader">Chargement</span>';
@@ -442,14 +470,31 @@ async function editLawyer(l) {
 }
 
 async function newsModal(n) {
+  let image; // undefined = inchangée, null = retirée, objet = nouvelle
   const r = await modal({ title: n ? "Modifier l'article" : 'Publier un article', confirm: n ? 'Enregistrer' : 'Publier',
     body: `<div class="form" style="gap:16px">
       <div class="field"><label for="nw-t">Titre</label><input class="input" id="nw-t" name="title" required maxlength="160" value="${esc(n?.title || '')}"></div>
       <div class="field"><label for="nw-c">Catégorie</label><input class="input" id="nw-c" name="category" required maxlength="60" value="${esc(n?.category || 'Actualité')}"></div>
       <div class="field"><label for="nw-e">Résumé</label><input class="input" id="nw-e" name="excerpt" required maxlength="300" value="${esc(n?.excerpt || '')}"></div>
       <div class="field"><label for="nw-b">Contenu</label><textarea class="input" id="nw-b" name="body" required maxlength="20000">${esc(n?.body || '')}</textarea><p class="hint">Séparez les paragraphes par une ligne vide.</p></div>
+      <div class="field"><span class="label">Image (facultative)</span><div class="img-pick">
+        <div class="prev" id="nw-prev">${n?.image ? `<img src="${esc(n.image)}" alt="">` : 'Aucune image'}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><input type="file" id="nw-file" accept="image/png,image/jpeg,image/webp" hidden>
+          <button type="button" class="btn btn-ghost btn-sm" id="nw-choose">${n?.image ? 'Changer l’image' : 'Ajouter une image'}</button>
+          <button type="button" class="btn btn-quiet btn-sm" id="nw-remove" ${n?.image ? '' : 'hidden'}>Retirer</button></div></div></div>
       <label class="check"><input type="checkbox" name="published" ${n?.published === false ? '' : 'checked'}> Publié</label></div>`,
-    onSubmit: (d, form) => api(n ? `/admin/news/${n.id}` : '/admin/news', { method: n ? 'PATCH' : 'POST', body: { ...d, published: form.querySelector('[name=published]').checked } }) });
+    onOpen: d => {
+      const input = $('#nw-file', d), prev = $('#nw-prev', d), rm = $('#nw-remove', d);
+      $('#nw-choose', d).onclick = () => input.click();
+      input.onchange = async () => {
+        const f = input.files[0]; input.value = '';
+        if (!f) return;
+        try { const img = await resizeImage(f, 1600); image = { mime: img.mime, data: img.data }; prev.innerHTML = `<img src="${img.preview}" alt="">`; rm.hidden = false; }
+        catch (e) { toast(e.message, 'error'); }
+      };
+      rm.onclick = () => { image = null; prev.textContent = 'Aucune image'; rm.hidden = true; };
+    },
+    onSubmit: (d, form) => api(n ? `/admin/news/${n.id}` : '/admin/news', { method: n ? 'PATCH' : 'POST', body: { ...d, published: form.querySelector('[name=published]').checked, ...(image !== undefined ? { image } : {}) } }) });
   if (r) { toast(n ? 'Article enregistré.' : 'Article publié.'); loaders.actualites(); }
 }
 

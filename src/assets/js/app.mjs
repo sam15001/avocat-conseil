@@ -111,6 +111,37 @@ export const fileToBase64 = file => new Promise((res, rej) => {
   r.readAsDataURL(file);
 });
 
+// Image réduite dans le navigateur avant envoi (captures en jeu souvent > 5 Mo) : JPEG, 2000 px de large maximum
+export function resizeImage(file, maxW = 2000, quality = 0.86) {
+  return new Promise((res, rej) => {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return rej(new Error('Formats acceptés : PNG, JPG ou WEBP.'));
+    if (file.size > 25 * 1024 * 1024) return rej(new Error('Image trop lourde (25 Mo maximum).'));
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.naturalWidth);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      const dataUrl = c.toDataURL('image/jpeg', quality);
+      res({ mime: 'image/jpeg', data: dataUrl.split(',')[1], preview: dataUrl });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Image illisible.')); };
+    img.src = url;
+  });
+}
+
+// Photos du site remplacées depuis l'administration
+async function applySitePhotos() {
+  const imgs = $$('img[data-site-photo]');
+  if (!imgs.length) return;
+  try {
+    const { photos } = await api('/public/site-photos');
+    for (const img of imgs) { const v = photos[img.dataset.sitePhoto]; if (v) img.src = `/api/public/site-photo/${img.dataset.sitePhoto}?v=${v}`; }
+  } catch { /* photos par défaut */ }
+}
+applySitePhotos();
+
 export async function uploadFiles(caseNumber, files, { internal = false } = {}) {
   for (const f of files) {
     if (f.size > 4 * 1024 * 1024) throw new Error(`${f.name} dépasse 4 Mo.`);
@@ -186,6 +217,7 @@ function initHeader() {
       <div class="account-menu" role="menu">
         <div class="role">${esc(roleName(me.role))}</div>
         <a role="menuitem" href="/espace-client.html">Espace client</a>
+        <a role="menuitem" href="/espace-client.html#profil">Modifier mon nom</a>
         ${me.role >= 1 ? '<a role="menuitem" href="/espace-avocat.html">Espace avocat</a>' : ''}
         ${me.role >= 2 ? '<a role="menuitem" href="/administration.html">Administration</a>' : ''}
         <button role="menuitem" data-logout>Se déconnecter</button>
