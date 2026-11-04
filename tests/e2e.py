@@ -217,7 +217,7 @@ with sync_playwright() as p:
     c.goto(f'{BASE}/rendez-vous.html'); c.wait_for_selector('.choice')
     c.click('.choice[data-v="penal"]'); c.wait_for_selector('.service-option')
     services = [x.inner_text().split('\n')[0] for x in c.query_selector_all('.service-option')]
-    check('Prestations du droit pénal proposées (+ « Autre demande »)', "Assistance lors d'un interrogatoire" in services and services[-1] == 'Autre demande' and len(services) == 34, services)
+    check('Prestations du droit pénal proposées (+ « Autre demande »)', "Assistance lors d'un interrogatoire" in services and services[-1] == 'Autre demande' and len(services) == 31, services)
     c.screenshot(path=f'{SHOTS}/05a-rdv-prestations.png', full_page=True)
     c.click('.service-option[data-s="Contestation d\'une mise en accusation"]'); c.wait_for_selector('.referent-card')
     check('Étape avocat : avocat référent imposé', 'Votre avocat référent' in c.content() and 'Harvey Collins' in c.content())
@@ -422,13 +422,10 @@ with sync_playwright() as p:
     api(d, '/admin/settings', 'PUT', {'settings': {'channel_admin': ''}})
 
 
-    pub.goto(BASE + '/expertises/penal.html'); pub.wait_for_selector('.law-card')
-    check('Page Droit pénal : cadre légal FratWorld (articles + lien LégiFrat)', pub.locator('.law-card').count() == 14 and 'CPP 226-4' in pub.inner_text('.law-grid') and pub.locator('.law-card[href^="https://legifrat.fr/"]').count() == 14)
-    check('Prestation pénale : fondement légal affiché', 'CPP 405-5' in pub.inner_text('.price-list'))
-    pub.goto(BASE + '/recherche.html?q=CPP%20226-4'); pub.wait_for_selector('.search-hit.exact')
-    check('Recherche : « CPP 226-4 » en accès direct', 'Assistance d' in pub.inner_text('.search-hit.exact'))
+    pub.goto(BASE + '/expertises/penal.html'); pub.wait_for_selector('.price-row')
+    check('Page Droit pénal : aucune législation affichée', pub.locator('.law-card').count() == 0 and 'CPP' not in pub.inner_text('main'))
     pub.goto(BASE + '/recherche.html?q=caution'); pub.wait_for_selector('.search-hit')
-    check('Recherche : « caution » trouve la prestation et l’article', 'Demande de libération sous caution' in pub.inner_text('#results') and 'CPP 405-5' in pub.inner_text('#results'))
+    check('Recherche : « caution » trouve la prestation', 'Demande de libération sous caution' in pub.inner_text('#results') and 'Articles de loi' not in pub.inner_text('#filters'))
     pub.goto(BASE + '/'); pub.wait_for_selector('.quick-link')
     check('Accueil : bandeau, recherche et accès rapide', pub.locator('.notice-band').count() == 1 and pub.locator('.hero-search').count() == 1 and pub.locator('.quick-link').count() == 8)
     print('\n[10b] Photos du site et images des actualités')

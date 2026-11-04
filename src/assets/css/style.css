@@ -810,17 +810,6 @@ dialog.modal { overflow: hidden; }
 .img-pick .prev { width: 160px; aspect-ratio: 16/9; background: var(--ink); border: 1px solid var(--line-soft); display: grid; place-items: center; overflow: hidden; color: var(--paper-dim); }
 .img-pick .prev img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Cadre légal FratWorld (pages domaines) */
-.law-section { border-top: 1px solid var(--line); }
-.law-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); margin-top: 28px; }
-.law-card { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--ink); padding: 22px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--paper); transition: background .25s; }
-.law-card:hover { background: var(--ink-2); }
-.law-ref { font-family: var(--display); color: var(--bronze); font-size: 1.05rem; }
-.law-card strong { font-weight: 600; }
-.law-sum { color: var(--paper-dim); font-size: .92rem; line-height: 1.55; }
-.law-pen { margin-top: auto; padding-top: 8px; font-size: .82rem; color: var(--muted); border-top: 1px solid var(--line-soft); }
-.law-kicker { font-size: .85rem; font-weight: 500; color: var(--bronze); letter-spacing: .02em; margin: 0 0 10px; }
-
 /* ─── Inspiration portail juridique : bandeau, recherche, accès rapide ─── */
 .notice-band { background: var(--ink-3); border-bottom: 1px solid var(--line-soft); font-size: .8125rem; color: var(--paper-dim); }
 .notice-band .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 7px; padding-bottom: 7px; max-width: 1400px; }
@@ -905,7 +894,7 @@ h3 { font-family: var(--sans); font-weight: 600; letter-spacing: 0; }
 :root[data-theme="light"] .side-link[aria-selected="true"] { background: linear-gradient(90deg, rgba(138,106,50,.16), rgba(138,106,50,.04)); }
 :root[data-theme="light"] .page-head { background: var(--ink-2); }
 :root[data-theme="light"] .page-head-photo { opacity: .35; }
-:root[data-theme="light"] .law-card:hover, :root[data-theme="light"] .quick-link:hover { background: var(--ink-2); }
+:root[data-theme="light"] .quick-link:hover { background: var(--ink-2); }
 /* La grande photo d'accueil et les portraits restent sur fond sombre : texte clair lisible sur l'image */
 :root[data-theme="light"] .hero, :root[data-theme="light"] .team-portraits .lawyer-meta {
   --ink: #09090A; --ink-2: #111113; --ink-3: #18181B; --line: #303136; --line-soft: #222327;

@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import site from '../site.config.mjs';
 import { DOMAINS } from '../shared/domains.mjs';
-import { LAW, LAW_SOURCE } from '../shared/legal.mjs';
 import { ICONS, DOMAIN_ICON, crest } from '../src/assets/js/icons.mjs';
 
 const SRC = 'src', OUT = 'dist';
@@ -12,7 +11,6 @@ fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 fs.cpSync(path.join(SRC, 'assets'), path.join(OUT, 'assets'), { recursive: true });
 fs.copyFileSync('shared/domains.mjs', path.join(OUT, 'assets/js/domains.mjs'));
-fs.copyFileSync('shared/legal.mjs', path.join(OUT, 'assets/js/legal.mjs'));
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -27,9 +25,9 @@ const QUICK = [
   ['/espace-client.html', 'Suivre mon dossier', 'Statut, rendez-vous, documents et messages de votre avocat.'],
   ['/honoraires.html', 'Honoraires', 'Les tarifs de chaque prestation, par domaine.'],
   ['/equipe.html', 'Nos avocats', 'Spécialités, coordonnées et disponibilités.'],
-  ['/recherche.html', 'Rechercher', 'Une prestation, un avocat, un article de loi (CPP 226-4, CGI 530-1…).'],
-  ['https://legifrat.fr/', 'Législation de FratWorld', 'Bill of Rights, codes et décrets sur LégiFrat.', true],
-  ['/faq.html', 'Questions fréquentes', 'Garde à vue, caution, délais de recours.']
+  ['/recherche.html', 'Rechercher', 'Une prestation, un avocat, une actualité.'],
+  ['/recrutement.html', 'Nous rejoindre', 'Postes ouverts au cabinet et candidature en ligne.'],
+  ['/faq.html', 'Questions fréquentes', 'Demandes, rendez-vous, suivi de votre dossier.']
 ];
 
 const NAV = [
@@ -48,7 +46,7 @@ const navItem = ([k, h, l], active) => k === 'expertises'
 
 const header = active => `
 <a class="skip" href="#main">Aller au contenu</a>
-${site.notice ? `<div class="notice-band"><div class="wrap"><span>${esc(site.notice)}</span><a href="https://legifrat.fr/" target="_blank" rel="noopener">Consulter la législation de FratWorld ↗</a></div></div>` : ''}
+${site.notice ? `<div class="notice-band"><div class="wrap"><span>${esc(site.notice)}</span><a href="/rendez-vous.html">Prendre rendez-vous</a></div></div>` : ''}
 <header class="site-header">
   <div class="wrap">
     <a class="brand" href="/" aria-label="${esc(site.name)}, accueil">${MARK}${WORDMARK}</a>
@@ -182,16 +180,6 @@ for (const d of DOMAINS) {
     </aside>
   </div>
 </section>
-${(LAW[d.slug] || []).length ? `<section class="section-tight law-section" id="cadre-legal">
-  <div class="wrap">
-    <p class="law-kicker">Législation de FratWorld</p>
-    <h2 style="font-size:var(--step-3)">Ce que dit la loi</h2>
-    <p class="muted" style="max-width:720px">Les textes que nos avocats appliquent dans ce domaine. Résumés à jour au ${LAW_SOURCE.date.split('-').reverse().join('/')} ; seul le texte officiel publié sur <a href="${LAW_SOURCE.url}" target="_blank" rel="noopener">LégiFrat</a> fait foi.</p>
-    <div class="law-grid">${LAW[d.slug].map(l => `<a class="law-card" href="${esc(l.url)}" target="_blank" rel="noopener">
-      <span class="law-ref">${esc(l.ref)}</span><strong>${esc(l.title)}</strong><span class="law-sum">${esc(l.summary)}</span>
-      ${l.penalty ? `<span class="law-pen">Peine maximale : ${esc(l.penalty)}</span>` : ''}</a>`).join('')}</div>
-  </div>
-</section>` : ''}
 <section class="section-tight">
   <div class="wrap">
     <h2 style="font-size:var(--step-3)">Autres domaines</h2>

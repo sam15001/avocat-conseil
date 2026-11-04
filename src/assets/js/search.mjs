@@ -1,10 +1,9 @@
-// Recherche sur tout le site : prestations, articles de loi de FratWorld, domaines, avocats, actualités.
+// Recherche sur tout le site : prestations, domaines, avocats, actualités.
 import { api, $, $$, esc, fmtDate } from './app.mjs';
 import { DOMAINS, DOMAIN_BY_SLUG, fmtPrice } from './domains.mjs';
-import { LAW, LAW_SOURCE } from './legal.mjs';
 
 const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[’']/g, ' ');
-const KINDS = [['all', 'Tout'], ['law', 'Articles de loi'], ['service', 'Prestations'], ['domain', 'Domaines'], ['lawyer', 'Avocats'], ['news', 'Actualités']];
+const KINDS = [['all', 'Tout'], ['service', 'Prestations'], ['domain', 'Domaines'], ['lawyer', 'Avocats'], ['news', 'Actualités']];
 const STOP = new Set(['le', 'la', 'les', 'de', 'des', 'du', 'un', 'une', 'et', 'ou', 'a', 'au', 'aux', 'en', 'd', 'l', 'pour', 'sur', 'par', 'dans', 'mon', 'ma', 'mes', 'je', 'est']);
 
 let index = null;
@@ -15,12 +14,6 @@ async function buildIndex() {
     api('/public/news?limit=50').then(d => d.news).catch(() => [])
   ]);
   const items = [];
-  const seen = new Set();
-  for (const [slug, list] of Object.entries(LAW)) for (const l of list) {
-    if (seen.has(l.ref)) continue; seen.add(l.ref);
-    items.push({ kind: 'law', title: `${l.ref} — ${l.title}`, text: l.summary, extra: l.penalty ? `Peine maximale : ${l.penalty}` : '', url: l.url, ext: true,
-      where: `Législation de FratWorld · ${DOMAIN_BY_SLUG[slug].name}`, num: norm(l.ref).replace(/\s+/g, ' '), hay: norm(`${l.ref} ${l.title} ${l.summary} ${l.penalty || ''}`) });
-  }
   for (const s of services) items.push({ kind: 'service', title: s.name, text: s.description || '', extra: fmtPrice(s.price, s.price_unit), url: `/expertises/${s.domain}.html`,
     where: `Prestation · ${DOMAIN_BY_SLUG[s.domain]?.name || s.domain}${s.group_name ? ' · ' + s.group_name : ''}`, hay: norm(`${s.name} ${s.description || ''} ${s.group_name || ''}`) });
   for (const d of DOMAINS) items.push({ kind: 'domain', title: d.name, text: d.short, url: `/expertises/${d.slug}.html`, where: 'Domaine d’intervention',
@@ -35,9 +28,7 @@ const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function run(q, kind) {
   const query = norm(q).trim();
   if (!query) return { exact: [], hits: [], terms: [] };
-  // Numéro d'article : « 226-4 », « CPP 226-4 », « BOR-VI », « décret 2026-022 »
-  const num = query.match(/(?:\b(cpp|cp|cgi|deonto|bor)\b[\s-]*)?((?:\d{3}-\d+)|(?:[ivx]+-\d+)|(?:da-\d)|(?:20\d\d-\d{3}))/);
-  const exact = num ? index.filter(i => i.kind === 'law' && new RegExp(`(^|[^0-9a-z-])${reEsc(num[2])}($|[^0-9a-z-]|,)`).test(i.num) && (!num[1] || i.num.startsWith(num[1] === 'bor' ? 'bor' : num[1] + ' '))) : [];
+  const exact = [];
   const terms = query.split(/[^a-z0-9-]+/).filter(w => w && !STOP.has(w));
   const res = terms.map(t => new RegExp(`(^|[^a-z0-9])${reEsc(t)}(s|x|e|es)?(?![a-z0-9])`));
   const hits = index.filter(i => (kind === 'all' || i.kind === kind) && !exact.includes(i) && res.every(r => r.test(i.hay)))
@@ -65,7 +56,7 @@ async function render() {
   const q = params.get('q') || '', kind = KINDS.some(([k]) => k === params.get('type')) ? params.get('type') : 'all';
   $('#q').value = q;
   const out = $('#results');
-  if (!q.trim()) { $('#filters').innerHTML = ''; out.innerHTML = '<p class="muted">Exemples : <a href="?q=garde%20%C3%A0%20vue">garde à vue</a> · <a href="?q=caution">caution</a> · <a href="?q=CPP%20226-4">CPP 226-4</a> · <a href="?q=IRS">IRS</a> · <a href="?q=licence">licence</a></p>'; return; }
+  if (!q.trim()) { $('#filters').innerHTML = ''; out.innerHTML = '<p class="muted">Exemples : <a href="?q=garde%20%C3%A0%20vue">garde à vue</a> · <a href="?q=caution">caution</a> · <a href="?q=contrat">contrat</a> · <a href="?q=entreprise">entreprise</a></p>'; return; }
   out.innerHTML = '<span class="loader">Recherche</span>';
   index ||= await buildIndex();
   const r = run(q, kind);
@@ -75,8 +66,7 @@ async function render() {
   out.innerHTML = `${r.exact.length ? `<h2 class="results-title">Accès direct</h2>${r.exact.map(i => card(i, r.terms, true)).join('')}` : ''}
     <h2 class="results-title">${r.hits.length ? `${r.hits.length} résultat${r.hits.length > 1 ? 's' : ''}` : r.exact.length ? 'Autres résultats : aucun' : 'Aucun résultat'}</h2>
     ${r.hits.slice(0, 80).map(i => card(i, r.terms)).join('')}
-    ${!r.hits.length && !r.exact.length ? `<p class="muted">Essayez un autre mot, ou cherchez directement dans la <a href="${LAW_SOURCE.url}" target="_blank" rel="noopener">législation officielle sur LégiFrat</a>.</p>` : ''}
-    <p class="muted search-note">Les articles de loi sont des résumés à jour au ${LAW_SOURCE.date.split('-').reverse().join('/')} ; seul le texte officiel publié sur LégiFrat fait foi.</p>`;
+    ${!r.hits.length && !r.exact.length ? `<p class="muted">Essayez un autre mot, ou <a href="/contact.html">posez votre question au cabinet</a>.</p>` : ''}`;
 }
 
 $('#search-form').addEventListener('submit', e => { e.preventDefault(); const q = $('#q').value.trim(); history.pushState(null, '', q ? `?q=${encodeURIComponent(q)}` : location.pathname); render(); });

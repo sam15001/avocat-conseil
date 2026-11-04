@@ -3,6 +3,7 @@
 import { rtdb } from './store.mjs';
 import { seedServiceRows } from '../shared/domains.mjs';
 import { all } from './store.mjs';
+import { REVERT, ADDED } from './revert-legal.mjs';
 
 const NEWS = [
   { slug: 'ouverture-cabinet-los-santos', title: 'Le cabinet ouvre ses bureaux à Rockford Hills', category: 'Le cabinet',
@@ -10,13 +11,13 @@ const NEWS = [
     body: "Le cabinet AVOCAT & CONSEIL ouvre officiellement ses portes à Rockford Hills. Nos avocats reçoivent sur rendez-vous, du lundi au samedi.\n\nLes demandes peuvent être déposées directement depuis votre espace client, après connexion avec votre compte Discord. Chaque demande reçoit un numéro de dossier et vous pouvez en suivre l'avancement en temps réel." },
   { slug: 'garde-a-vue-vos-droits', title: 'Garde à vue : ce que vous pouvez exiger', category: 'Droit pénal',
     excerpt: "Droit au silence, droit à un avocat, durée de la retenue : les règles à connaître avant d'être interrogé.",
-    body: "En garde à vue, vous avez droit à un avocat, au silence, à un appel téléphonique et à être informé des faits (CPP 226-3). Votre avocat est contacté immédiatement : vous avez 15 minutes d'entretien confidentiel avec lui, et aucune audition ne peut commencer sans lui avant 30 minutes (CPP 226-4).\n\nLa garde à vue dure 24 heures, prolongeable jusqu'à 96 heures pour les infractions graves (CPP 226-2). Tout manquement à ces règles peut faire annuler la garde à vue et les actes qui en découlent (CPP 226-6). Demandez explicitement votre avocat et ne signez aucune déclaration sans l'avoir relue. Source : Code de procédure pénale de FratWorld, sur LégiFrat." },
+    body: "Toute personne interpellée par le LSPD ou le BCSO peut demander l'assistance d'un avocat avant son interrogatoire.\n\nDemandez explicitement votre avocat, ne signez aucune déclaration sans l'avoir relue et notez l'heure de votre interpellation. Notre permanence pénale peut être contactée depuis le site ou depuis notre serveur Discord." },
   { slug: 'contester-une-amende', title: 'Contester une amende routière : délais et méthode', category: 'Droit routier',
     excerpt: "Une contravention n'est pas définitive tant que les délais de contestation ne sont pas expirés.",
     body: "Vous avez reçu une amende que vous estimez injustifiée ? Conservez le ticket, les captures et le nom de l'agent.\n\nDéposez une demande dans la catégorie « Droit administratif et routier » en joignant ces éléments. L'avocat attribué vous indiquera la procédure applicable sur le serveur." }
 ];
 
-const OLD_GAV_BODY = "Toute personne interpellée par le LSPD ou le BCSO peut demander l'assistance d'un avocat avant son interrogatoire.\n\nDemandez explicitement votre avocat, ne signez aucune déclaration sans l'avoir relue et notez l'heure de votre interpellation. Notre permanence pénale peut être contactée depuis le site ou depuis notre serveur Discord.";
+const LEGAL_GAV_BODY = "En garde à vue, vous avez droit à un avocat, au silence, à un appel téléphonique et à être informé des faits (CPP 226-3). Votre avocat est contacté immédiatement : vous avez 15 minutes d'entretien confidentiel avec lui, et aucune audition ne peut commencer sans lui avant 30 minutes (CPP 226-4).\n\nLa garde à vue dure 24 heures, prolongeable jusqu'à 96 heures pour les infractions graves (CPP 226-2). Tout manquement à ces règles peut faire annuler la garde à vue et les actes qui en découlent (CPP 226-6). Demandez explicitement votre avocat et ne signez aucune déclaration sans l'avoir relue. Source : Code de procédure pénale de FratWorld, sur LégiFrat.";
 
 let done = false;
 export async function ensureSeeded() {
@@ -41,27 +42,24 @@ export async function ensureSeeded() {
   done = true;
 }
 
-// Mise à jour v2 (4 novembre 2026) : références à la législation de FratWorld.
-// Ne remplace jamais une description ou un prix saisis par le cabinet ; ajoute seulement ce qui manque.
+// Mise à jour v3 : retire les références à la législation ajoutées par la v2 (4 novembre 2026).
+// Seul ce qui n'a pas été retouché par le cabinet est remis à l'état d'origine.
 async function upgradeCatalog() {
-  const r = await rtdb.txn('meta/catalog_v', v => (Number(v) >= 2 ? undefined : 2));
+  const r = await rtdb.txn('meta/catalog_v', v => (Number(v) >= 3 ? undefined : 3));
   if (!r.committed) return;
   const services = await all('services');
-  const key = x => `${x.domain}|${String(x.name).toLowerCase()}`;
-  const byKey = new Map(services.map(x => [key(x), x]));
+  const key = (d, n) => `${d}|${String(n).toLowerCase()}`;
+  const byKey = new Map(services.map(x => [key(x.domain, x.name), x]));
   const patch = {};
-  let next = Math.max(Number(await rtdb.get('counters/services')) || 0, ...services.map(x => Number(x.id) || 0));
-  const t = new Date().toISOString();
-  for (const row of seedServiceRows()) {
-    const cur = byKey.get(key(row));
-    if (cur) { if (!cur.description && row.description) patch[`tables/services/${cur.id}/description`] = row.description; continue; }
-    const id = ++next;
-    patch[`tables/services/${id}`] = { id, domain: row.domain, group_name: row.group, name: row.name, description: row.description || null,
-      price: row.price, price_unit: row.unit || null, sort_order: row.sort, active: true, created_at: t };
+  for (const [d, name, added, original] of REVERT) {
+    const cur = byKey.get(key(d, name));
+    if (cur && cur.description === added) patch[`tables/services/${cur.id}/description`] = original || null;
   }
-  if (next) patch['counters/services'] = next;
-  const news = await all('news');
-  const gav = news.find(n => n.slug === 'garde-a-vue-vos-droits' && n.body === OLD_GAV_BODY);
+  for (const [d, name, added] of ADDED) {
+    const cur = byKey.get(key(d, name));
+    if (cur && (cur.description || '') === added && (cur.price === null || cur.price === undefined)) patch[`tables/services/${cur.id}`] = null;
+  }
+  const gav = (await all('news')).find(x => x.slug === 'garde-a-vue-vos-droits' && x.body === LEGAL_GAV_BODY);
   if (gav) patch[`tables/news/${gav.id}/body`] = NEWS[1].body;
   if (Object.keys(patch).length) await rtdb.patch('', patch);
 }
