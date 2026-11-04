@@ -930,3 +930,11 @@ h3 { font-family: var(--sans); font-weight: 600; letter-spacing: 0; }
 .link-btn:hover { color: var(--bronze-hi); }
 .recap-list { max-height: none; }
 details > .recap-list { margin-top: 8px; }
+
+/* Conditions du service documentaire */
+.doc-terms { margin-top: 40px; padding: 24px 26px; border: 1px solid var(--line); border-left: 3px solid var(--bronze); background: var(--ink-2); }
+.doc-terms h3 { margin: 0 0 14px; }
+.doc-terms dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 28px; margin: 0 0 14px; }
+.doc-terms dt { font-weight: 600; color: var(--bronze); font-size: .9rem; margin-bottom: 3px; }
+.doc-terms dd { margin: 0; color: var(--paper-dim); font-size: .92rem; line-height: 1.55; }
+.doc-terms p { margin: 0; font-size: .9rem; }

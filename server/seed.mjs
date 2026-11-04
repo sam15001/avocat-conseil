@@ -1,7 +1,7 @@
 // Contenu de départ, inséré une seule fois dans une base Firebase vide :
 // catalogue des prestations (module pénal + actes) et 3 actualités d'exemple.
 import { rtdb } from './store.mjs';
-import { seedServiceRows } from '../shared/domains.mjs';
+import { seedServiceRows, DOC_MODULES } from '../shared/domains.mjs';
 import { all } from './store.mjs';
 import { REVERT, ADDED } from './revert-legal.mjs';
 
@@ -42,24 +42,52 @@ export async function ensureSeeded() {
   done = true;
 }
 
-// Mise à jour v3 : retire les références à la législation ajoutées par la v2 (4 novembre 2026).
-// Seul ce qui n'a pas été retouché par le cabinet est remis à l'état d'origine.
+// Mises à jour du catalogue sur une base déjà en ligne (exécutées une seule fois chacune).
+//  v3 : retire les références à la législation ajoutées par la v2 (4 novembre 2026).
+//  v4 : modules documentaires tarifés, service B2B et grille tarifaire du cabinet.
+// Ce que le cabinet a déjà modifié (prix, texte) n'est jamais écrasé.
 async function upgradeCatalog() {
-  const r = await rtdb.txn('meta/catalog_v', v => (Number(v) >= 3 ? undefined : 3));
+  let from = 0;
+  const r = await rtdb.txn('meta/catalog_v', v => { from = Number(v) || 0; return from >= 4 ? undefined : 4; });
   if (!r.committed) return;
   const services = await all('services');
   const key = (d, n) => `${d}|${String(n).toLowerCase()}`;
   const byKey = new Map(services.map(x => [key(x.domain, x.name), x]));
   const patch = {};
-  for (const [d, name, added, original] of REVERT) {
-    const cur = byKey.get(key(d, name));
-    if (cur && cur.description === added) patch[`tables/services/${cur.id}/description`] = original || null;
+  if (from < 3) {
+    for (const [d, name, added, original] of REVERT) {
+      const cur = byKey.get(key(d, name));
+      if (cur && cur.description === added) patch[`tables/services/${cur.id}/description`] = original || null;
+    }
+    for (const [d, name, added] of ADDED) {
+      const cur = byKey.get(key(d, name));
+      if (cur && (cur.description || '') === added && (cur.price === null || cur.price === undefined)) patch[`tables/services/${cur.id}`] = null;
+    }
+    const gav = (await all('news')).find(x => x.slug === 'garde-a-vue-vos-droits' && x.body === LEGAL_GAV_BODY);
+    if (gav) patch[`tables/news/${gav.id}/body`] = NEWS[1].body;
   }
-  for (const [d, name, added] of ADDED) {
-    const cur = byKey.get(key(d, name));
-    if (cur && (cur.description || '') === added && (cur.price === null || cur.price === undefined)) patch[`tables/services/${cur.id}`] = null;
+  if (from < 4) {
+    let next = Math.max(Number(await rtdb.get('counters/services')) || 0, ...services.map(x => Number(x.id) || 0));
+    const docGroups = new Set(DOC_MODULES.map(g => g.group));
+    const t = new Date().toISOString();
+    for (const row of seedServiceRows().filter(x => docGroups.has(x.group))) {
+      const cur = byKey.get(key(row.domain, row.name));
+      if (cur) {
+        if (cur.price === 0 || cur.price === null || cur.price === undefined) {
+          patch[`tables/services/${cur.id}/price`] = row.price;
+          patch[`tables/services/${cur.id}/price_unit`] = row.unit || null;
+          patch[`tables/services/${cur.id}/group_name`] = row.group;
+          patch[`tables/services/${cur.id}/sort_order`] = 500 + row.sort;
+          if (!cur.description && row.description) patch[`tables/services/${cur.id}/description`] = row.description;
+        }
+        continue;
+      }
+      const id = ++next;
+      patch[`tables/services/${id}`] = { id, domain: row.domain, group_name: row.group, name: row.name, description: row.description || null,
+        price: row.price, price_unit: row.unit || null, sort_order: 500 + row.sort, active: true, created_at: t };
+      byKey.set(key(row.domain, row.name), { id });
+    }
+    patch['counters/services'] = next;
   }
-  const gav = (await all('news')).find(x => x.slug === 'garde-a-vue-vos-droits' && x.body === LEGAL_GAV_BODY);
-  if (gav) patch[`tables/news/${gav.id}/body`] = NEWS[1].body;
   if (Object.keys(patch).length) await rtdb.patch('', patch);
 }

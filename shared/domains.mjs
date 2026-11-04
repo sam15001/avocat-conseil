@@ -109,28 +109,66 @@ export const WEEKDAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Ven
 
 // ── Actes juridiques rédigés par le cabinet, regroupés par secteur.
 // Ajoutez ou retirez des actes ici : pages domaines, prise de rendez-vous et demandes se mettent à jour.
-export const CATALOG = {
-  affaires: [
-    { group: 'Création et vie des sociétés', items: [
-      'Statuts de Corporation (Articles of Incorporation)', 'Articles d\'organisation LLC', 'Accord d\'exploitation LLC',
-      'Règlement intérieur de Corporation (Bylaws)', 'Déclaration de nom commercial fictif (DBA)', 'Convocation d\'assemblée générale',
-      'Procès-verbal d\'assemblée générale', 'Procès-verbal de conseil d\'administration', 'Registre des actionnaires',
-      'Pacte d\'actionnaires', 'Cession de parts sociales / actions', 'Certificat de dissolution de société'] },
-    { group: 'Contrats et opérations commerciales', items: [
-      'Contrat commercial B2B', 'Avenant à contrat commercial', 'Lettre d\'intention (LOI / Term Sheet)',
-      'Contrat de location commerciale de biens mobiliers', 'Accord de sûreté et déclaration UCC-1', 'Notification de vente en bloc aux créanciers'] },
-    { group: 'Droit du travail (employeurs)', items: [
-      'Promesse d\'embauche', 'Contrat d\'alternance', 'Convention de stage', 'Lettre d\'avertissement', 'Mise à pied disciplinaire',
-      'Mise en demeure salarié (absence injustifiée)', 'Convocation à entretien préalable de licenciement',
-      'Déclaration d\'accident du travail (DRI-SA)', 'Convention collective d\'entreprise', 'Notification WARN de licenciement collectif'] }
-  ],
-  immobilier: [
-    { group: 'Actes immobiliers', items: ['Bail commercial immobilier'] }
-  ],
-  civil: [
-    { group: 'Actes entre particuliers', items: ['Reconnaissance de dette', 'Protocole transactionnel'] }
-  ]
-};
+// ── Modules documentaires (rédaction d'actes), tarifs par mois d'abonnement.
+// Valeurs initiales : ensuite tout se gère dans Administration → Prestations.
+const M = '/ mois';
+export const DOC_MODULES = [
+  { domain: 'affaires', group: 'Service B2B documentaire · Accès', items: [
+    ['Accès au service de rédaction — formule mensuelle', 99900, M, 'Obligatoire pour souscrire aux modules documentaires. Salon privé Discord avec le secrétariat du cabinet, signature par votre avocat référent.'],
+    ['Accès au service de rédaction — formule trimestrielle', 279900, '/ trimestre', 'Même service, réglé par trimestre.']] },
+  { domain: 'affaires', group: 'Modules documentaires · Activité commerciale', items: [
+    ['Contrat de sous-traitance', 19900], ['Déclaration de nom commercial fictif (DBA)', 14900], ['Conditions Générales de Vente (CGV)', 19900],
+    ['Contrat de vente de marchandises', 17900], ['Contrat de location commerciale de biens mobiliers', 16900], ['Accord de sûreté et déclaration UCC-1', 22900],
+    ['Notification de vente en bloc aux créanciers', 19900], ['Mise en demeure de paiement (B2B)', 9900], ['Accord de confidentialité (NDA)', 14900],
+    ['Lettre d\'intention (LOI / Term Sheet)', 19900], ['Reconnaissance de dette', 9900], ['Protocole transactionnel', 24900],
+    ['Bail commercial immobilier', 29900], ['Contrat commercial B2B', 59900], ['Avenant à contrat commercial', 24900]] },
+  { domain: 'affaires', group: 'Modules documentaires · Vie sociale et corporative', items: [
+    ['Statuts de Corporation (Articles of Incorporation)', 39900], ['Articles d\'organisation LLC', 34900], ['Accord d\'exploitation LLC', 29900],
+    ['Règlement intérieur de Corporation (Bylaws)', 24900], ['Procès-verbal d\'assemblée générale', 9900], ['Procès-verbal de conseil d\'administration', 7900],
+    ['Convocation d\'assemblée générale', 5900], ['Registre des actionnaires', 7900], ['Certificat de dissolution de société', 24900],
+    ['Pacte d\'actionnaires', 39900], ['Cession de parts sociales / actions', 24900]] },
+  { domain: 'affaires', group: 'Modules documentaires · Contrats de travail', items: [
+    ['Contrat à Durée Indéterminée (CDI)', 14900], ['Contrat à Durée Déterminée (CDD)', 12900], ['Contrat de Travail Temporaire (CTT)', 12900],
+    ['Contrat d\'alternance', 11900], ['Convention de stage', 9900]] },
+  { domain: 'affaires', group: 'Modules documentaires · Documents RH', items: [
+    ['Avenant au contrat de travail', 7900], ['Lettre d\'avertissement', 4900], ['Mise à pied disciplinaire', 6900], ['Certificat de travail', 3900],
+    ['Attestation employeur', 3900], ['Reçu pour solde de tout compte', 4900], ['Règlement intérieur d\'entreprise', 39900],
+    ['Lettre de promotion / changement de poste', 6900], ['Mise en demeure salarié (absence injustifiée)', 7900],
+    ['Programme de Prévention des Risques (IIPP)', 24900], ['Déclaration d\'accident du travail (DRI-SA)', 8900],
+    ['Convention collective d\'entreprise', 34900], ['Promesse d\'embauche', 7900]] },
+  { domain: 'affaires', group: 'Modules documentaires · Rupture du contrat', items: [
+    ['Lettre de licenciement économique', 19900], ['Lettre de licenciement pour faute', 22900], ['Rupture conventionnelle', 17900],
+    ['Acceptation de démission', 4900], ['Notification WARN de licenciement collectif', 29900], ['Convocation à entretien préalable de licenciement', 14900]] },
+  { domain: 'immobilier', group: 'Rédaction d\'actes · Actes immobiliers', items: [['Bail commercial immobilier', 29900]] },
+  { domain: 'civil', group: 'Rédaction d\'actes · Actes entre particuliers', items: [['Reconnaissance de dette', 9900], ['Protocole transactionnel', 24900]] },
+  // Grille tarifaire du cabinet (montants indicatifs, devis ferme à l'ouverture du dossier)
+  { domain: 'conseil', group: 'Contrats de représentation continue · Particulier', items: [
+    ['Représentation continue particulier — hebdomadaire', 49900, '/ semaine', 'Représentation juridique continue, tout inclus (supplément possible pour les très grosses affaires).'],
+    ['Représentation continue particulier — mensuelle', 149900, M, 'Représentation juridique continue, tout inclus (supplément possible pour les très grosses affaires).'],
+    ['Représentation continue particulier — trimestrielle', 399900, '/ trimestre', 'Représentation juridique continue, tout inclus (supplément possible pour les très grosses affaires).']] },
+  { domain: 'conseil', group: 'Contrats de représentation continue · Entreprise', items: [
+    ['Représentation continue entreprise — hebdomadaire', 124750, '/ semaine', 'Représentation juridique continue, tout inclus (supplément possible pour les très grosses affaires).'],
+    ['Représentation continue entreprise — mensuelle', 374750, M, 'Représentation juridique continue, tout inclus (supplément possible pour les très grosses affaires).'],
+    ['Représentation continue entreprise — trimestrielle', 999750, '/ trimestre', 'Représentation juridique continue, tout inclus (supplément possible pour les très grosses affaires).']] },
+  { domain: 'conseil', group: 'Conseil juridique', items: [
+    ['Analyse de contrat', 14900, '', 'Étude approfondie d’un contrat fourni.'], ['Rédaction d’acte sur mesure', 19900, '', 'Rédaction sur mesure d’un acte ou d’un contrat.']] },
+  { domain: 'conseil', group: 'Représentation au tribunal', items: [
+    ['Audience pénale', 69900, '/ audience', 'Représentation à une audience pénale.'], ['Audience civile', 49900, '/ audience', 'Représentation à une audience civile.'],
+    ['Procédure complète', 99900, '', 'Suivi intégral d’une procédure, de l’instruction au jugement.']] },
+  { domain: 'conseil', group: 'Suivi sur dossier', items: [
+    ['Heure d’avocat junior', 9900, '/ heure', 'Travail d’un avocat junior, taux horaire.'], ['Heure d’avocat senior', 14900, '/ heure', 'Travail d’un avocat senior, taux horaire.'],
+    ['Heure d’avocat associé', 19900, '/ heure', 'Travail d’un avocat associé, taux horaire.']] }
+];
+// Conditions du service documentaire (affichées sur la page Droit des affaires et dans les honoraires)
+export const DOC_TERMS = [
+  ['Tarification des modules', 'Mensuelle ou trimestrielle (trimestriel = 3 × mensuel, sans remise).'],
+  ['Accès obligatoire', 'L’accès au service de rédaction est obligatoire et ne donne pas accès aux documents : chaque type de document est souscrit séparément.'],
+  ['Rédaction illimitée', 'Sur la durée de l’abonnement actif.'],
+  ['Corrections', 'Possibles dans les 15 minutes suivant la livraison de chaque document.'],
+  ['Confidentialité absolue', 'Un salon privé dédié à votre entreprise, accessible uniquement à vos collaborateurs habilités et à votre avocat référent.'],
+  ['Signature', 'Chaque document est signé électroniquement par votre avocat référent et par vous-même (et, en option, par le salarié concerné). Reconductible mensuellement ou trimestriellement.']
+];
+
 
 // ── Module pénal (tarifs du cabinet). Valeurs initiales : ensuite tout se gère dans Administration → Prestations.
 export const PENAL_MODULE = [
@@ -160,15 +198,15 @@ export function seedServiceRows() {
   for (const d of DOMAINS) {
     if (d.slug === 'penal') continue;
     for (const [name, description] of d.services) rows.push({ domain: d.slug, group: 'Accompagnement', name, description, price: null, unit: '', sort: order++ });
-    for (const g of CATALOG[d.slug] || []) for (const name of g.items) rows.push({ domain: d.slug, group: `Rédaction d'actes · ${g.group}`, name, description: '', price: 0, unit: '', sort: order++ });
   }
+  for (const g of DOC_MODULES) for (const [name, price, unit = M, description = ''] of g.items) rows.push({ domain: g.domain, group: g.group, name, description, price, unit, sort: order++ });
   return rows;
 }
 
 // Prestation libre quand rien ne correspond
 export const OTHER_SERVICE = 'Autre demande';
 
-export const PRICE_UNITS = ['', '/ mois', '/ heure', '/ audience', '/ acte'];
+export const PRICE_UNITS = ['', '/ mois', '/ trimestre', '/ semaine', '/ heure', '/ audience', '/ acte'];
 
 // $4 900 / mois · Offert · Sur devis
 export function fmtPrice(price, unit = '') {

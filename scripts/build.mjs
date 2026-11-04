@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import site from '../site.config.mjs';
-import { DOMAINS } from '../shared/domains.mjs';
+import { DOMAINS, DOC_TERMS } from '../shared/domains.mjs';
 import { ICONS, DOMAIN_ICON, crest } from '../src/assets/js/icons.mjs';
 
 const SRC = 'src', OUT = 'dist';
@@ -18,6 +18,8 @@ for (const f of fs.readdirSync(path.join(OUT, 'assets/js')).filter(f => f.endsWi
   fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/(from\s+|import\()(['"])(\.\/[\w-]+\.mjs)\2/g, `$1$2$3?v=${BUILD}$2`));
 }
 
+const docTerms = () => `<div class="doc-terms"><h3>Service B2B documentaire : comment ça fonctionne</h3><dl>${DOC_TERMS.map(([t, d]) => `<div><dt>${t}</dt><dd>${d}</dd></div>`).join('')}</dl>
+  <p class="muted">La souscription se fait avec le cabinet : prenez rendez-vous ou contactez nos avocats associés.</p></div>`;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export const MARK = crest('crest');
@@ -134,6 +136,7 @@ const fill = html => html
   .replace(/\{\{icon:(\w+)\}\}/g, (_, k) => ICONS[k] || '')
   .replace(/\{\{domains:cards\}\}/g, () => DOMAINS.map(d => `
     <a class="domain-card" href="/expertises/${d.slug}.html">${ICONS[DOMAIN_ICON[d.slug]]}<strong>${esc(d.name)}</strong><span>${esc(d.tag)}</span></a>`).join(''))
+  .replace(/\{\{docterms\}\}/g, () => docTerms())
   .replace(/\{\{quick\}\}/g, () => QUICK.map(([h, t, d, ext]) => `<a class="quick-link" href="${h}"${ext ? ' target="_blank" rel="noopener"' : ''}><strong>${esc(t)}</strong><span>${esc(d)}</span></a>`).join(''))
   .replace(/\{\{domains:index\}\}/g, () => DOMAINS.map(d => `
     <a class="domain-row" href="/expertises/${d.slug}.html">
@@ -170,6 +173,7 @@ for (const d of DOMAINS) {
     <div>
       <h2>Nos prestations</h2>
       <div class="price-list" data-services="${d.slug}"><span class="loader">Chargement des prestations</span></div>
+      ${d.slug === 'affaires' ? docTerms() : ''}
       <div style="margin-top:72px">
         <h2>Les avocats de ce pôle</h2>
         <div class="team-grid" data-team="${d.slug}"><span class="loader">Chargement</span></div>
