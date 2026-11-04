@@ -2,6 +2,7 @@
 export default {
   name: 'AVOCAT & CONSEIL',
   tagline: 'Votre défense, notre engagement.',
+  notice: 'Cabinet d’avocats · Droit de l’État de FratWorld · Consultations sur rendez-vous',
   address: ['Portola Drive, Rockford Hills', 'Los Santos, San Andreas'],
   phone: '555-0142',               // numéro en jeu
   hours: 'Sur rendez-vous, du lundi au samedi',
