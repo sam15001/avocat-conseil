@@ -35,7 +35,17 @@ route('GET', '/api/auth/callback', async ({ req, query }) => {
   const code = query.get('code');
   if (!code || !saved.state || query.get('state') !== saved.state) return fail('etat');
 
-  const tokenRes = await discordFetch('/oauth2/token', {
+  // Discord limite parfois les hébergeurs partagés (429) ou répond 5xx : un nouvel essai après le délai indiqué
+  const withRetry = async call => {
+    let r = await call();
+    if (r.status === 429 || r.status >= 500) {
+      const wait = Math.min(5, Number(r.data?.retry_after) || 1.5);
+      await new Promise(ok => setTimeout(ok, wait * 1000));
+      r = await call();
+    }
+    return r;
+  };
+  const tokenRes = await withRetry(() => discordFetch('/oauth2/token', {
     method: 'POST', bot: false,
     form: {
       client_id: process.env.DISCORD_APPLICATION_ID || '',
@@ -44,12 +54,16 @@ route('GET', '/api/auth/callback', async ({ req, query }) => {
       code,
       redirect_uri: redirectUri()
     }
-  });
-  if (!tokenRes.ok) { console.error('[oauth] token', tokenRes.status, tokenRes.data); return fail('discord'); }
+  }));
+  if (!tokenRes.ok) {
+    console.error('[oauth] token', tokenRes.status, JSON.stringify(tokenRes.data).slice(0, 300));
+    if (tokenRes.data?.error === 'invalid_grant') return fail('expire');
+    return fail(`discord&code=${tokenRes.data?.error === 'invalid_client' ? 'secret' : tokenRes.status}`);
+  }
   const accessToken = tokenRes.data.access_token;
 
-  const me = await discordFetch('/users/@me', { bot: false, token: accessToken });
-  if (!me.ok) return fail('discord');
+  const me = await withRetry(() => discordFetch('/users/@me', { bot: false, token: accessToken }));
+  if (!me.ok) { console.error('[oauth] users/@me', me.status, JSON.stringify(me.data).slice(0, 300)); return fail(`discord&code=${me.status}`); }
 
   const settings = await getSettings({ fresh: true });
   let discordRole = 0, nick = null;

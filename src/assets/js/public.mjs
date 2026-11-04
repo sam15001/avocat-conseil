@@ -94,11 +94,12 @@ function initLogin() {
     annule: 'Connexion annulée sur Discord.',
     etat: 'La session de connexion a expiré. Réessayez.',
     discord: "Discord n'a pas répondu correctement. Réessayez dans un instant.",
+    expire: 'Le lien de connexion a expiré ou a déjà servi (page rechargée, double clic). Cliquez à nouveau sur « Se connecter avec Discord ».',
     serveur: "Vous devez être membre du serveur Discord du cabinet pour vous connecter.",
     desactive: 'Ce compte a été désactivé par le cabinet.'
   };
   const err = params.get('erreur');
-  if (err && msgs[err]) { $('#login-error').textContent = msgs[err]; $('#login-error').hidden = false; }
+  if (err && msgs[err]) { const c = params.get('code'); $('#login-error').textContent = msgs[err] + (c ? ` (code ${c === 'secret' ? 'secret OAuth2 refusé' : c})` : ''); $('#login-error').hidden = false; }
 }
 
 loadTeams();
