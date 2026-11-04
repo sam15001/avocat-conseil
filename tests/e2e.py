@@ -499,29 +499,38 @@ with sync_playwright() as p:
 
     print('\n[10c] Contrats de travail via Discord (/contrat)')
     CIT, CIT2, AV1 = '500000000000000002', '500000000000000003', '500000000000000004'
-    copts = [{'name': 'type', 'value': 'CDI'}, {'name': 'salarie', 'value': CIT2}, {'name': 'entreprise', 'value': 'LTD - F4L'}, {'name': 'poste', 'value': 'Manager'},
-             {'name': 'salaire', 'value': 1500}, {'name': 'missions', 'value': 'Recrutement; Gestion des stocks'}, {'name': 'siege', 'value': 'Davis / Groove Street'}, {'name': 'fonction', 'value': 'PDG'}]
+    copts = [{'name': 'salarie', 'value': CIT2}]
     resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])})
     check('Sans accès au service : /contrat refusé avec lien vers l’offre', resp['data']['flags'] == 64 and 'abonnées' in resp['data']['content'], resp)
     cid = [x for x in api(r, '/admin/clients')[1]['clients'] if x['discord_id'] == CIT][0]['id']
     check('Admin : accès au service de rédaction accordé au client', api(r, f'/admin/users/{cid}', 'PATCH', {'documents_access': True})[0] == 200)
-    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': [o for o in copts if o['name'] != 'salarie'] + [{'name': 'salarie', 'value': CIT}]}, 'member': member(CIT, [])})
+    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': [{'name': 'salarie', 'value': CIT}]}, 'member': member(CIT, [])})
     check('Salarié = soi-même : refusé', 'autre personne' in resp['data']['content'], resp)
     resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])})
-    check('/contrat ouvre le questionnaire (nom, prénom, naissance, lieu, clauses)', resp['type'] == 9 and len(resp['data']['components']) == 5, resp)
+    tpl = resp['data']['components'][0]['components'][0].get('value', '') if resp['type'] == 9 else ''
+    check('/contrat ouvre un texte pré-rempli à compléter', resp['type'] == 9 and 'Nom du salarié :' in tpl and 'Type de contrat (CDI, CDD ou CTT) : CDI' in tpl, resp)
     modal_id = resp['data']['custom_id']
     fields = lambda d: [{'type': 1, 'components': [{'type': 4, 'custom_id': k, 'value': v}]} for k, v in d.items()]
-    bad = interaction({'type': 5, 'data': {'custom_id': modal_id, 'components': fields({'nom': 'Anakin', 'prenom': 'Bow', 'naissance': '2000-13-45x', 'lieu_naissance': 'LS', 'clauses': ''})}, 'member': member(CIT, [])})
-    check('Date de naissance invalide refusée', 'invalide' in bad['data']['content'], bad)
-    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])}); modal_id = resp['data']['custom_id']
+    fill = lambda t, d: '\n'.join(next((f'{l.split(":")[0]}: {v}' for k, v in d.items() if l.startswith(k)), l) for l in t.split('\n'))
+    partial = fill(tpl, {'Entreprise': 'LTD - F4L', 'Nom du salarié': 'Anakin'})
+    bad = interaction({'type': 5, 'data': {'custom_id': modal_id, 'components': fields({'formulaire': partial, 'clauses': ''})}, 'member': member(CIT, [])})
+    fb = followup()
+    check('Formulaire incomplet : réponse immédiate puis liste de ce qui manque', bad['type'] == 5 and 'Prénom du salarié' in fb.get('content', '') and 'Salaire' in fb.get('content', ''), fb)
+    edit_id = fb['components'][0]['components'][0]['custom_id']
+    re_open = interaction({'type': 3, 'data': {'custom_id': edit_id}, 'member': member(CIT, [])})
+    check('« Corriger le formulaire » rouvre le texte déjà saisi', re_open['type'] == 9 and 'LTD - F4L' in re_open['data']['components'][0]['components'][0]['value'], re_open)
+    full = fill(tpl, {'Entreprise': 'LTD - F4L', 'Adresse': 'Davis / Groove Street', 'Nom du salarié': 'Anakin', 'Prénom du salarié': 'Bow', 'Date de naissance': '27/05/2000',
+                      'Lieu de naissance': 'Los Santos', 'Poste': 'Manager', 'Salaire ($)': '1 500 $', 'Missions': 'Recrutement; Gestion des stocks'})
     mock('/mock/messages', 'DELETE')
-    resp = interaction({'type': 5, 'data': {'custom_id': modal_id, 'components': fields({'nom': 'Anakin', 'prenom': 'Bow', 'naissance': '27/05/2000', 'lieu_naissance': 'Los Santos', 'clauses': 'Véhicule de service.\nPrime de 200 $ par objectif.'})}, 'member': member(CIT, [])})
+    resp = interaction({'type': 5, 'data': {'custom_id': modal_id, 'components': fields({'formulaire': full, 'clauses': 'Véhicule de service.\nPrime de 200 $ par objectif.'})}, 'member': member(CIT, [])})
     check('Questionnaire envoyé : réponse immédiate « en cours » (délai Discord de 3 s)', resp['type'] == 5 and resp['data']['flags'] == 64, resp)
     check('… puis confirmation : contrat généré', 'AC-CT-' in followup().get('content', ''), followup())
     dms = [x for x in messages() if x['channel'] in (f'dm-{CIT}', f'dm-{CIT2}')]
     check('PDF envoyé en privé à l’employeur et au salarié, avec bouton « Signer »', len(dms) == 2 and all(x['file']['pdf'] and x['file']['filename'].startswith('AC-CT-') for x in dms)
           and all(x['components'][0]['components'][0]['custom_id'].startswith('csign:') for x in dms), dms)
     check('Le cabinet est prévenu dans le salon des demandes', any(x['channel'] == CH['requests'] and x.get('file', {}).get('pdf') for x in messages()))
+    c1 = api(r, '/admin/contracts')[1]['contracts'][0]
+    check('Texte lu correctement (salarié, poste, salaire)', c1['employee_name'] == 'Bow Anakin' and c1['position'] == 'Manager' and c1['company'] == 'LTD - F4L', c1)
     sign_id = dms[0]['components'][0]['components'][0]['custom_id']
     r_other = interaction({'type': 3, 'data': {'custom_id': sign_id}, 'user': {'id': '500000000000000006', 'username': 'marcus'}})
     check('Un tiers ne peut pas signer', 'ne vous concerne pas' in r_other['data']['content'], r_other)
@@ -546,8 +555,9 @@ with sync_playwright() as p:
     pdfr = r.request.get(BASE + f"/api/admin/contracts/{ct['id']}/pdf")
     check('PDF téléchargeable depuis l’administration', pdfr.status == 200 and pdfr.body()[:5] == b'%PDF-')
     check('PDF réservé à l’équipe', c.request.get(BASE + f"/api/admin/contracts/{ct['id']}/pdf").status == 403)
-    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': [{'name': 'type', 'value': 'CDD'}] + [o for o in copts if o['name'] != 'type'] + [{'name': 'duree', 'value': '3 mois'}]}, 'member': member(CIT, [])})
-    resp = interaction({'type': 5, 'data': {'custom_id': resp['data']['custom_id'], 'components': fields({'nom': 'Reyes', 'prenom': 'Lucia', 'naissance': '01/02/1999', 'lieu_naissance': 'Sandy Shores', 'clauses': ''})}, 'member': member(CIT, [])})
+    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])})
+    cddtxt = fill(full.replace('Type de contrat (CDI, CDD ou CTT) : CDI', 'Type de contrat (CDI, CDD ou CTT) : cdd'), {'Durée': '3 mois', 'Nom du salarié': 'Reyes', 'Prénom du salarié': 'Lucia'})
+    interaction({'type': 5, 'data': {'custom_id': resp['data']['custom_id'], 'components': fields({'formulaire': cddtxt, 'clauses': ''})}, 'member': member(CIT, [])})
     cdd = api(r, '/admin/contracts')[1]['contracts'][0]
     rr = interaction({'type': 3, 'data': {'custom_id': f"crefuse:{cdd['id']}"}, 'user': {'id': CIT2, 'username': 'lucia'}})
     check('CDD refusé par le salarié : contrat marqué refusé', 'refusé' in rr['data']['content'] and api(r, '/admin/contracts')[1]['contracts'][0]['status'] == 'refuse', rr)

@@ -8,23 +8,63 @@ import { dmFile, channelFile, linkButtons, discordFetch, editOriginal } from './
 const GOLD = 0xB08D57;
 export const CONTRACT_COMMAND = {
   name: 'contrat', description: 'Rédiger un contrat de travail (CDI, CDD, CTT) et le faire signer sur Discord',
-  options: [
-    { type: 3, name: 'type', description: 'Type de contrat', required: true, choices: Object.entries(CONTRACT_TYPES).map(([value, name]) => ({ name, value })) },
-    { type: 6, name: 'salarie', description: 'Le salarié (membre du serveur)', required: true },
-    { type: 3, name: 'entreprise', description: 'Nom de l’entreprise', required: true, max_length: 80 },
-    { type: 3, name: 'poste', description: 'Poste occupé', required: true, max_length: 80 },
-    { type: 4, name: 'salaire', description: 'Salaire en $', required: true, min_value: 0, max_value: 100000000 },
-    { type: 3, name: 'periodicite', description: 'Salaire par mois (défaut) ou par semaine', required: false, choices: [{ name: 'Par mois', value: 'mois' }, { name: 'Par semaine', value: 'semaine' }] },
-    { type: 3, name: 'missions', description: 'Missions, séparées par des « ; »', required: false, max_length: 600 },
-    { type: 3, name: 'siege', description: 'Adresse de l’entreprise', required: false, max_length: 120 },
-    { type: 3, name: 'lieu', description: 'Lieu de travail (défaut : le siège)', required: false, max_length: 120 },
-    { type: 3, name: 'debut', description: 'Date de prise de fonction JJ/MM/AAAA (défaut : aujourd’hui)', required: false, max_length: 10 },
-    { type: 3, name: 'duree', description: 'Durée (CDD, CTT), ex. « 3 mois »', required: false, max_length: 60 },
-    { type: 4, name: 'essai', description: 'Période d’essai en jours (défaut : 30, 0 = aucune)', required: false, min_value: 0, max_value: 365 },
-    { type: 4, name: 'heures', description: 'Heures par semaine (défaut : 40)', required: false, min_value: 1, max_value: 80 },
-    { type: 3, name: 'fonction', description: 'Votre fonction dans l’entreprise (défaut : Employeur)', required: false, max_length: 60 }
-  ]
+  options: [{ type: 6, name: 'salarie', description: 'Le salarié (membre du serveur)', required: true }]
 };
+
+// Texte à compléter : une ligne « Rubrique : valeur » par information
+export const TEMPLATE = [
+  ['type', 'Type de contrat (CDI, CDD ou CTT)', 'CDI'],
+  ['company', 'Entreprise', ''],
+  ['company_address', 'Adresse de l’entreprise', ''],
+  ['employer_title', 'Votre fonction', 'PDG'],
+  ['last_name', 'Nom du salarié', ''],
+  ['first_name', 'Prénom du salarié', ''],
+  ['birth_date', 'Date de naissance (JJ/MM/AAAA)', ''],
+  ['birth_place', 'Lieu de naissance', ''],
+  ['position', 'Poste', ''],
+  ['salary', 'Salaire ($)', ''],
+  ['salary_period', 'Salaire par (mois ou semaine)', 'mois'],
+  ['missions', 'Missions (séparées par ;)', ''],
+  ['workplace', 'Lieu de travail', ''],
+  ['start_date', 'Date de début (JJ/MM/AAAA)', ''],
+  ['duration', 'Durée (CDD ou CTT, ex. 3 mois)', ''],
+  ['trial_days', 'Période d’essai (jours)', '30'],
+  ['hours', 'Heures par semaine', '40']
+];
+const templateText = (vals = {}) => TEMPLATE.map(([k, label, def]) => `${label} : ${vals[k] ?? def}`).join('\n');
+const keyNorm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[’']/g, ' ').replace(/\s+/g, ' ').trim();
+const KEYS = new Map(TEMPLATE.map(([k, label]) => [keyNorm(label), k]));
+
+// Lit le texte rempli → { valeurs, erreurs }
+export function parseContractText(text) {
+  const v = {};
+  for (const line of String(text).split('\n')) {
+    const i = line.indexOf(':'); if (i < 0) continue;
+    const k = KEYS.get(keyNorm(line.slice(0, i))); if (k) v[k] = line.slice(i + 1).trim();
+  }
+  const err = [];
+  const type = String(v.type || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (!CONTRACT_TYPES[type]) err.push('Type de contrat : CDI, CDD ou CTT');
+  for (const [k, label] of [['company', 'Entreprise'], ['last_name', 'Nom du salarié'], ['first_name', 'Prénom du salarié'], ['birth_place', 'Lieu de naissance'], ['position', 'Poste']])
+    if (!v[k]) err.push(`${label} : à remplir`);
+  const birth = parseBirth(v.birth_date); if (!birth) err.push('Date de naissance : format JJ/MM/AAAA');
+  const salary = Number(String(v.salary || '').replace(/[^\d]/g, '')); if (!v.salary || !/\d/.test(v.salary)) err.push('Salaire : un montant en $');
+  let start = new Date().toISOString().slice(0, 10);
+  if (v.start_date) { start = parseBirth(v.start_date); if (!start) err.push('Date de début : format JJ/MM/AAAA'); }
+  if ((type === 'CDD' || type === 'CTT') && !v.duration) err.push('Durée : obligatoire pour un CDD ou un CTT');
+  const num = (x, d, min, max) => { const n = parseInt(String(x ?? '').replace(/[^\d]/g, ''), 10); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
+  return { err, values: v, data: {
+    type, company: v.company, company_address: v.company_address || null, employer_title: v.employer_title || 'Employeur', position: v.position,
+    salary, salary_period: /sem/i.test(v.salary_period || '') ? 'semaine' : 'mois',
+    missions: String(v.missions || '').split(';').map(x => x.trim()).filter(Boolean).slice(0, 12), workplace: v.workplace || null,
+    start_date: start, duration: v.duration || null, trial_days: num(v.trial_days, 30, 0, 365), hours: num(v.hours, 40, 1, 80),
+    employee: { last_name: v.last_name, first_name: v.first_name, birth_date: birth, birth_place: v.birth_place }
+  } };
+}
+
+const contractModalFor = (employeeId, text, clauses = '') => ({ type: 9, data: { custom_id: `contrat:${employeeId}`, title: 'Contrat de travail', components: [
+  { type: 1, components: [{ type: 4, custom_id: 'formulaire', label: 'Complétez chaque ligne après les « : »', style: 2, required: true, max_length: 4000, value: text }] },
+  { type: 1, components: [{ type: 4, custom_id: 'clauses', label: 'Clauses particulières (facultatif)', style: 2, required: false, max_length: 1500, ...(clauses ? { value: clauses } : {}), placeholder: 'Une clause par ligne : véhicule de service, prime, astreinte…' }] }] } });
 
 const eph = (content, extra = {}) => ({ type: 4, data: { content, flags: 64, allowed_mentions: { parse: [] }, ...extra } });
 const opt = (i, n) => i.data.options?.find(o => o.name === n)?.value;
@@ -46,44 +86,45 @@ async function canDraft(interaction) {
 
 export async function contractCommand(interaction) {
   if (!interaction.member) return eph('Utilisez /contrat sur le serveur du cabinet.');
-  const who = await canDraft(interaction);
-  if (!who.ok) return eph('La rédaction de contrats est réservée aux entreprises abonnées au service documentaire du cabinet. Contactez-nous pour y souscrire :',
-    { components: linkButtons(['Nos honoraires', '/expertises/affaires.html'], ['Prendre rendez-vous', '/rendez-vous.html?domaine=affaires']) });
   const employee = opt(interaction, 'salarie');
   if (employee === userOf(interaction).id) return eph('Le salarié doit être une autre personne que vous : choisissez son compte Discord dans l’option « salarie ».');
-  let start = new Date().toISOString().slice(0, 10);
-  if (opt(interaction, 'debut')) { start = parseBirth(opt(interaction, 'debut')); if (!start) return eph('Date de prise de fonction invalide : utilisez le format JJ/MM/AAAA.'); }
-  const type = opt(interaction, 'type');
-  if ((type === 'CDD' || type === 'CTT') && !opt(interaction, 'duree')) return eph('Pour un CDD ou un CTT, indiquez la durée dans l’option « duree » (ex. « 3 mois »).');
-  const nonce = crypto.randomBytes(9).toString('base64url');
-  await rtdb.put(`drafts/contracts/${nonce}`, {
-    type, employee_discord_id: employee, employer_discord_id: userOf(interaction).id, employer_name: who.site?.rp_name || nameOf(userOf(interaction), interaction.member),
-    employer_title: opt(interaction, 'fonction') || 'Employeur', company: opt(interaction, 'entreprise'), company_address: opt(interaction, 'siege') || null, position: opt(interaction, 'poste'),
-    salary: opt(interaction, 'salaire'), salary_period: opt(interaction, 'periodicite') || 'mois', missions: String(opt(interaction, 'missions') || '').split(';').map(s => s.trim()).filter(Boolean).slice(0, 12),
-    workplace: opt(interaction, 'lieu') || null, start_date: start, duration: opt(interaction, 'duree') || null, trial_days: opt(interaction, 'essai') ?? 30, hours: opt(interaction, 'heures') ?? 40,
-    requested_by_user_id: who.site?.id ?? null, created_at: now()
-  });
-  const input = (custom_id, label, { style = 1, required = true, max = 60, placeholder } = {}) =>
-    ({ type: 1, components: [{ type: 4, custom_id, label, style, required, max_length: max, ...(placeholder ? { placeholder } : {}) }] });
-  return { type: 9, data: { custom_id: `contrat:${nonce}`, title: `${type} — informations du salarié`, components: [
-    input('nom', 'Nom du salarié', { max: 40 }), input('prenom', 'Prénom du salarié', { max: 40 }),
-    input('naissance', 'Date de naissance (JJ/MM/AAAA)', { max: 10, placeholder: '27/05/2000' }), input('lieu_naissance', 'Lieu de naissance', { max: 60 }),
-    input('clauses', 'Clauses particulières (facultatif)', { style: 2, required: false, max: 1500, placeholder: 'Une clause par ligne : véhicule de service, prime, astreinte…' })] } };
+  // Discord attend la fenêtre en moins de 3 secondes : l'accès est vérifié ici si la base répond vite, sinon à l'envoi
+  const who = await Promise.race([canDraft(interaction), new Promise(ok => setTimeout(() => ok(null), 1500))]);
+  if (who && !who.ok) return refusal();
+  return contractModalFor(employee, templateText());
 }
+const refusal = () => eph('La rédaction de contrats est réservée aux entreprises abonnées au service documentaire du cabinet. Contactez-nous pour y souscrire :',
+  { components: linkButtons(['Nos honoraires', '/expertises/affaires.html'], ['Prendre rendez-vous', '/rendez-vous.html?domaine=affaires']) });
 
 const field = (i, id) => i.data.components?.flatMap(r => r.components).find(c => c.custom_id === id)?.value?.trim() || '';
 
-export async function contractModal(interaction) {
-  const nonce = interaction.data.custom_id.split(':')[1];
-  const d = await rtdb.get(`drafts/contracts/${nonce}`);
-  if (!d || d.employer_discord_id !== userOf(interaction).id) return eph('Ce questionnaire a expiré. Relancez /contrat.');
-  const birth = parseBirth(field(interaction, 'naissance'));
-  if (!birth) return eph('Date de naissance invalide : utilisez le format JJ/MM/AAAA. Relancez /contrat.');
-  const c = await createContract({ ...d, employee: { last_name: field(interaction, 'nom'), first_name: field(interaction, 'prenom'), birth_date: birth, birth_place: field(interaction, 'lieu_naissance') },
-    clauses: field(interaction, 'clauses') || null, missions: d.missions || [] });
-  await rtdb.del(`drafts/contracts/${nonce}`);
-  // Discord exige une réponse en 3 secondes : on répond « en cours » puis on envoie le PDF
-  return { defer: { type: 5, data: { flags: 64 } }, after: async () => editOriginal(interaction, (await sendForSignature(c)).data) };
+export function contractModal(interaction) {
+  // Réponse immédiate, puis vérification et envoi du PDF
+  return { defer: { type: 5, data: { flags: 64 } }, after: async () => editOriginal(interaction, (await submitContract(interaction)).data) };
+}
+
+async function submitContract(interaction) {
+  const employee = interaction.data.custom_id.split(':')[1];
+  const who = await canDraft(interaction);
+  if (!who.ok) return refusal();
+  const text = field(interaction, 'formulaire'), clauses = field(interaction, 'clauses');
+  const { err, data } = parseContractText(text);
+  if (err.length) {
+    const nonce = crypto.randomBytes(9).toString('base64url');
+    await rtdb.put(`drafts/contracts/${nonce}`, { employee, employer: userOf(interaction).id, text, clauses, created_at: now() });
+    return eph(`Il manque des informations :\n${err.map(e => `• ${e}`).join('\n')}`,
+      { components: [{ type: 1, components: [{ type: 2, style: 1, label: 'Corriger le formulaire', custom_id: `cedit:${nonce}` }] }] });
+  }
+  const c = await createContract({ ...data, clauses: clauses || null, employee_discord_id: employee, employer_discord_id: userOf(interaction).id,
+    employer_name: who.site?.rp_name || nameOf(userOf(interaction), interaction.member), requested_by_user_id: who.site?.id ?? null });
+  return sendForSignature(c);
+}
+
+// Rouvre le formulaire avec le texte déjà saisi
+export async function contractEdit(interaction) {
+  const d = await rtdb.get(`drafts/contracts/${interaction.data.custom_id.split(':')[1]}`);
+  if (!d || d.employer !== userOf(interaction).id) return eph('Ce brouillon a expiré. Relancez /contrat.');
+  return contractModalFor(d.employee, d.text, d.clauses);
 }
 
 async function sendForSignature(c) {

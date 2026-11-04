@@ -8,7 +8,7 @@ const recent = (a, b) => String(b.updated_at).localeCompare(String(a.updated_at)
 import { HttpError } from './http.mjs';
 import { STATUSES, STATUS_BY_KEY, DOMAIN_BY_SLUG } from '../shared/domains.mjs';
 import { formatDateFr, linkButtons, welcomeMessage } from './discord.mjs';
-import { CONTRACT_COMMAND, contractCommand, contractModal, contractButton } from './contract-bot.mjs';
+import { CONTRACT_COMMAND, contractCommand, contractModal, contractButton, contractEdit } from './contract-bot.mjs';
 
 // Commandes ouvertes à tous : elles renvoient vers le site
 export const PUBLIC_COMMANDS = [
@@ -92,6 +92,7 @@ async function handleInner(interaction) {
   try {
     // Contrats : questionnaire (5), boutons de signature et de validation (3)
     if (interaction.type === 5 && interaction.data?.custom_id?.startsWith('contrat:')) return await contractModal(interaction);
+    if (interaction.type === 3 && interaction.data?.custom_id?.startsWith('cedit:')) return await contractEdit(interaction);
     if (interaction.type === 3 && /^(csign|crefuse|cvalid):/.test(interaction.data?.custom_id || '')) return await contractButton(interaction);
     if (interaction.type === 2 && interaction.data?.name === 'contrat') return await contractCommand(interaction);
   } catch (e) { console.error('[contrat]', e); return reply('Erreur lors du traitement du contrat, réessayez.'); }
