@@ -921,3 +921,12 @@ h3 { font-family: var(--sans); font-weight: 600; letter-spacing: 0; }
 :root[data-theme="light"] .pick-summary { box-shadow: 0 8px 24px rgba(20,22,28,.12); }
 :root[data-theme="light"] .badge-best { color: #fff; }
 :root[data-theme="light"] .service-option[aria-checked="true"] .check-box::after { border-color: #fff; }
+
+.select-all-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 28px 0 0; padding: 14px 18px; border: 1px dashed var(--line); }
+.select-all-bar .muted { font-size: .88rem; }
+.pick-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.pick-head h3 { margin: 0; }
+.link-btn { background: none; border: 0; padding: 0 0 0 10px; color: var(--bronze); font: 500 .82rem var(--sans); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.link-btn:hover { color: var(--bronze-hi); }
+.recap-list { max-height: none; }
+details > .recap-list { margin-top: 8px; }

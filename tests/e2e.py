@@ -242,6 +242,13 @@ with sync_playwright() as p:
     c2.goto(f'{BASE}/rendez-vous.html'); c2.wait_for_selector('.choice')
     c2.click('.choice[data-v="affaires"]'); c2.click('.choice[data-v="civil"]'); c2.wait_for_selector('#services-civil')
     check('Deux pôles sélectionnés : deux listes de prestations', c2.locator('.service-pick').count() == 2)
+    n_aff = c2.locator('.service-option[data-d="affaires"]:not([data-s="Autre demande"])').count()
+    c2.click('[data-all="*"]')
+    check('« Tout sélectionner » : toutes les prestations des 2 pôles, sans limite', c2.locator('.service-option[aria-checked="true"]').count() == c2.locator('.service-option:not([data-s="Autre demande"])').count() > 8)
+    c2.click('[data-all="*"]'); c2.click('[data-all="affaires"]')
+    check('« Tout le pôle » : seulement les prestations du pôle', c2.locator('.service-option[aria-checked="true"]').count() == n_aff)
+    c2.click('[data-all="affaires"]')
+    check('Tout désélectionner', c2.locator('.service-option[aria-checked="true"]').count() == 0)
     check('Bouton bloqué tant qu’un pôle n’a pas de prestation', c2.locator('[data-next][disabled]').count() == 1)
     c2.click('.service-option[data-d="affaires"][data-s="Contrats commerciaux"]'); c2.click('.service-option[data-d="affaires"][data-s="Litiges entre entreprises"]')
     c2.click('.service-option[data-d="civil"][data-s="Réclamations financières"]')
@@ -261,6 +268,10 @@ with sync_playwright() as p:
     f2 = {x['name']: x['value'] for x in am2['embeds'][0]['fields']}
     check('Discord : domaines et prestations listés', f2.get('Domaines') == 'Droit des affaires, Droit civil' and 'Prestations (3)' in f2, f2)
     api(c2, f"/appointments/{ap['id']}/cancel", 'POST')
+    allsv = [{'domain': x['domain'], 'name': x['name']} for x in api(c2, '/public/services')[1]['services'] if x['domain'] in ('affaires', 'civil')]
+    st, big = api(c2, '/appointments', 'POST', {'domain': 'affaires', 'services': allsv, 'lawyer_id': api(a2, '/me')[1]['user']['id'], 'date': next_weekday(1).isoformat(), 'time': '18:30', 'reason': 'Couverture complète de mon entreprise'})
+    check(f'Rendez-vous avec toutes les prestations ({len(allsv)}) accepté', st == 201 and len(allsv) > 8, big)
+    if st == 201: api(c2, f"/appointments/{big['appointment']['id']}/cancel", 'POST')
     check('Prestation d’un autre pôle refusée', api(c2, '/appointments', 'POST', {'domain': 'civil', 'services': [{'domain': 'civil', 'name': 'Contrats commerciaux'}], 'lawyer_id': api(a2, '/me')[1]['user']['id'], 'date': next_weekday(1).isoformat(), 'time': '18:00', 'reason': 'Test'})[0] == 400)
     c3_ctx.close(); c2 = c2_saved
     check('Dossier lié passé à « Rendez-vous programmé »', api(c, f'/cases/{num}')[1]['case']['status'] == 'rdv')

@@ -52,7 +52,7 @@ async function book({ user, client, lawyerId, date, time, reason, domain, servic
   }
 
   await notify('appointments', embeds.newAppointment({ ...appt, date, time, service, case_number: caseRow?.number }, client, lawyer.display_name));
-  await dm(client.discord_id, { title: 'Rendez-vous confirmé', description: `Le ${formatDateFr(date, time)} avec ${lawyer.display_name}.${service ? `\nPrestation : ${service}` : ''}\nMotif : ${reason}` }, [['Mes rendez-vous', '/espace-client.html#rendez-vous']]);
+  await dm(client.discord_id, { title: 'Rendez-vous confirmé', description: `Le ${formatDateFr(date, time)} avec ${lawyer.display_name}.${service ? `\n${picks?.length > 1 ? `Prestations (${picks.length})` : 'Prestation'} : ${service.length > 1500 ? service.slice(0, 1500) + '…' : service}` : ''}\nMotif : ${reason}` }, [['Mes rendez-vous', '/espace-client.html#rendez-vous']]);
   if (lawyer.discord_id && lawyer.discord_id !== client.discord_id) {
     await dm(lawyer.discord_id, { title: 'Nouveau rendez-vous', description: `${displayName(client)} — ${formatDateFr(date, time)}\n${reason}` }, [['Mon calendrier', '/espace-avocat.html#calendrier']]);
   }
@@ -65,7 +65,7 @@ route('GET', '/api/appointments', async ({ user }) => {
 }, { auth: 'user' });
 
 route('POST', '/api/appointments', async ({ req, user }) => {
-  const b = await readJson(req, 10000);
+  const b = await readJson(req, 120000);
   const domain = str(b.domain, 'Domaine');
   if (!DOMAIN_BY_SLUG[domain]) fail(400, 'Domaine juridique inconnu.');
   let caseRow = null;
@@ -78,7 +78,7 @@ route('POST', '/api/appointments', async ({ req, user }) => {
   if (upcoming >= 3) fail(429, 'Vous avez déjà 3 rendez-vous à venir.');
   // Plusieurs prestations possibles, y compris de domaines différents : [{ domain, name }]
   let picks = Array.isArray(b.services) ? b.services : (b.service ? [{ domain, name: b.service }] : []);
-  if (picks.length > 8) fail(400, 'Choisissez 8 prestations au maximum.');
+  if (picks.length > 300) fail(400, 'Sélection trop longue.');
   picks = picks.map(x => ({ domain: str(x?.domain, 'Domaine'), name: str(x?.name, 'Prestation', { max: 120 }) }));
   for (const x of picks) if (!DOMAIN_BY_SLUG[x.domain]) fail(400, 'Domaine juridique inconnu.');
   picks = picks.filter((x, i) => picks.findIndex(y => y.domain === x.domain && y.name === x.name) === i);

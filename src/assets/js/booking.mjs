@@ -18,6 +18,10 @@ const state = {
   date: saved.date || null, time: saved.time || null, reason: saved.reason || '', case_number: params.get('dossier') || saved.case_number || ''
 };
 const picked = (d, n) => state.picks.some(p => p.domain === d && p.name === n);
+// Prestations du catalogue (hors « Autre demande ») pour des pôles, éventuellement un seul groupe
+const servicesIn = (ds, group) => ds.flatMap(d => groupServices(catalog, d).filter(g => !group || g.group === group).flatMap(g => g.items.map(x => ({ domain: d, name: x.name }))));
+const countIn = ds => servicesIn(ds).length;
+const allIn = (ds, group) => { const items = servicesIn(ds, group); return items.length > 0 && items.every(x => picked(x.domain, x.name)); };
 const priceOf = p => catalog.find(c => c.domain === p.domain && c.name === p.name);
 // Chaque pôle choisi doit avoir au moins une prestation
 const needComplete = () => state.domains.length > 0 && state.domains.every(d => state.picks.some(p => p.domain === d));
@@ -55,10 +59,12 @@ function stepDomain() {
   root.innerHTML = `<h2 tabindex="-1" style="font-size:var(--step-3)">Quels sont vos besoins ?</h2>
     <p class="muted">Choisissez un ou plusieurs pôles, puis les prestations qui correspondent à votre situation. Vous pouvez en cocher plusieurs.</p>
     <div class="choice-grid domain-choices">${DOMAINS.map(x => `<button class="choice choice-icon" data-v="${x.slug}" aria-pressed="${state.domains.includes(x.slug)}">${ICONS[DOMAIN_ICON[x.slug]]}<strong>${esc(x.name)}</strong><small>${esc(x.tag)}</small></button>`).join('')}</div>
+    ${sel.length ? `<div class="select-all-bar"><button class="btn btn-ghost btn-sm" data-all="*">${allIn(state.domains) ? 'Tout désélectionner' : `Tout sélectionner (${countIn(state.domains)} prestations)`}</button>
+      <span class="muted">Idéal pour une entreprise qui souhaite une couverture complète.</span></div>` : ''}
     ${sel.map(d => `<div class="service-pick" id="services-${d.slug}">
-      <h3>${esc(d.name)} : quelles prestations ?</h3>
+      <div class="pick-head"><h3>${esc(d.name)} : quelles prestations ?</h3><button class="btn btn-quiet btn-sm" data-all="${d.slug}">${allIn([d.slug]) ? 'Tout désélectionner' : 'Tout le pôle'}</button></div>
       ${[...groupServices(catalog, d.slug), { group: 'Autre', items: [{ name: OTHER_SERVICE, description: 'Votre situation ne figure pas dans la liste : l’avocat la qualifiera avec vous.', price: undefined }] }].map(g => `
-      <h4 class="service-group">${esc(g.group)}</h4>
+      <h4 class="service-group">${esc(g.group)}${g.group !== 'Autre' && g.items.length > 1 ? ` <button class="link-btn" data-all="${d.slug}" data-group="${esc(g.group)}">${allIn([d.slug], g.group) ? 'tout retirer' : 'tout cocher'}</button>` : ''}</h4>
       <div class="service-options" role="group" aria-label="${esc(g.group)}">
         ${g.items.map(x => `
         <button class="service-option multi" role="checkbox" data-d="${d.slug}" data-s="${esc(x.name)}" aria-checked="${picked(d.slug, x.name)}"><span class="check-box" aria-hidden="true"></span>
@@ -76,10 +82,16 @@ function stepDomain() {
     save(); stepDomain();
     if (state.domains.includes(v)) $(`#services-${v}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+  $$('[data-all]', root).forEach(btn => btn.onclick = () => {
+    const ds = btn.dataset.all === '*' ? state.domains : [btn.dataset.all], g = btn.dataset.group;
+    const items = servicesIn(ds, g);
+    if (allIn(ds, g)) state.picks = state.picks.filter(p => !items.some(x => x.domain === p.domain && x.name === p.name));
+    else state.picks = [...state.picks, ...items.filter(x => !picked(x.domain, x.name))];
+    save(); const y = scrollY; stepDomain(); scrollTo(0, y);
+  });
   $$('.service-option', root).forEach(btn => btn.onclick = () => {
     const d = btn.dataset.d, n = btn.dataset.s;
     if (picked(d, n)) state.picks = state.picks.filter(p => !(p.domain === d && p.name === n));
-    else if (state.picks.length >= 8) return toast('8 prestations au maximum par rendez-vous.', 'error');
     else state.picks = [...state.picks, { domain: d, name: n }];
     save();
     const y = scrollY; stepDomain(); scrollTo(0, y);
@@ -163,7 +175,7 @@ async function stepConfirm() {
   root.innerHTML = `<h2 tabindex="-1" style="font-size:var(--step-3)">Vérifiez et confirmez</h2>
     <dl class="recap">
       <div><dt>${state.domains.length > 1 ? 'Pôles' : 'Pôle'}</dt><dd>${state.domains.map(d => esc(domainName(d))).join(' + ')}</dd></div>
-      <div><dt>Prestation${state.picks.length > 1 ? 's' : ''}</dt><dd><ul class="recap-list">${state.picks.map(p => { const x = priceOf(p); return `<li>${esc(p.name)}${state.domains.length > 1 ? ` <span class="muted">· ${esc(domainName(p.domain))}</span>` : ''}${x ? ` <span class="price-tag${x.price === 0 ? ' free' : ''}">${esc(fmtPrice(x.price, x.price_unit))}</span>` : ''}</li>`; }).join('')}</ul>${state.picks.length > 1 ? `<span class="muted">${totalLine()}</span>` : ''}</dd></div>
+      <div><dt>Prestation${state.picks.length > 1 ? 's' : ''}</dt><dd>${state.picks.length > 10 ? `<details><summary>${state.picks.length} prestations · voir la liste</summary>` : ''}<ul class="recap-list">${state.picks.map(p => { const x = priceOf(p); return `<li>${esc(p.name)}${state.domains.length > 1 ? ` <span class="muted">· ${esc(domainName(p.domain))}</span>` : ''}${x ? ` <span class="price-tag${x.price === 0 ? ' free' : ''}">${esc(fmtPrice(x.price, x.price_unit))}</span>` : ''}</li>`; }).join('')}</ul>${state.picks.length > 10 ? '</details>' : ''}${state.picks.length > 1 ? `<span class="muted">${totalLine()}</span>` : ''}</dd></div>
       <div><dt>Avocat</dt><dd>${esc(lawyer.display_name)}</dd></div>
       <div><dt>Date</dt><dd>${esc(fmtDay(state.date))} à ${esc(state.time)}</dd></div>
     </dl>
