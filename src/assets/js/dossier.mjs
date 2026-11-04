@@ -34,7 +34,7 @@ const eventText = e => {
 };
 
 function render({ case: c, events, documents, appointments }) {
-  document.title = `${c.number} — AVOCAT & CONSEIL`;
+  document.title = `${c.number} — Dominion Law Firm - Avocat & Conseil`;
   const closed = ['cloture', 'refuse'].includes(c.status);
   const staff = c.can_manage;
   const pendingMine = c.lawyer_id === me.id && c.lawyer_accepted === null;

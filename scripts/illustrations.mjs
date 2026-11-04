@@ -184,7 +184,7 @@ function heroNuit() {
   // plaque du cabinet
   s += `<rect x="${bx + 205}" y="${base - 210}" width="350" height="150" fill="#2a221c" stroke="#6e5737"/>`;
   s += `<g transform="translate(${bx + 350} ${base - 205}) scale(.95)" color="#d9b07a">${crest('x').replace('class="x"', 'width="64" height="64"')}</g>`;
-  s += `<text x="${bx + 380}" y="${base - 100}" text-anchor="middle" font-family="Didot, 'Bodoni 72', Georgia, serif" font-size="25" letter-spacing="3" fill="#e2bd86">AVOCAT &amp; CONSEIL</text>`;
+  s += `<text x="${bx + 380}" y="${base - 100}" text-anchor="middle" font-family="Didot, 'Bodoni 72', Georgia, serif" font-size="22" letter-spacing="2" fill="#e2bd86">DOMINION LAW FIRM</text>`;
   // marches et sol
   for (let i = 0; i < 5; i++) s += `<rect x="${bx - 20 - i * 18}" y="${base + i * 14}" width="${bw2 + 40 + i * 36}" height="14" fill="${i % 2 ? '#2a211b' : '#3b2f25'}"/>`;
   s += `<rect x="0" y="${base + 60}" width="${w}" height="${h - base - 60}" fill="url(#ground)"/><rect x="0" y="860" width="${bx - 120}" height="${h - 860}" fill="#0c0909"/>`;

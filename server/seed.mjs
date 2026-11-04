@@ -7,8 +7,8 @@ import { REVERT, ADDED } from './revert-legal.mjs';
 
 const NEWS = [
   { slug: 'ouverture-cabinet-los-santos', title: 'Le cabinet ouvre ses bureaux à Rockford Hills', category: 'Le cabinet',
-    excerpt: 'Après plusieurs mois de préparation, AVOCAT & CONSEIL accueille ses premiers clients dans ses nouveaux locaux.',
-    body: "Le cabinet AVOCAT & CONSEIL ouvre officiellement ses portes à Rockford Hills. Nos avocats reçoivent sur rendez-vous, du lundi au samedi.\n\nLes demandes peuvent être déposées directement depuis votre espace client, après connexion avec votre compte Discord. Chaque demande reçoit un numéro de dossier et vous pouvez en suivre l'avancement en temps réel." },
+    excerpt: 'Après plusieurs mois de préparation, Dominion Law Firm - Avocat & Conseil accueille ses premiers clients dans ses nouveaux locaux.',
+    body: "Le cabinet Dominion Law Firm - Avocat & Conseil ouvre officiellement ses portes à Rockford Hills. Nos avocats reçoivent sur rendez-vous, du lundi au samedi.\n\nLes demandes peuvent être déposées directement depuis votre espace client, après connexion avec votre compte Discord. Chaque demande reçoit un numéro de dossier et vous pouvez en suivre l'avancement en temps réel." },
   { slug: 'garde-a-vue-vos-droits', title: 'Garde à vue : ce que vous pouvez exiger', category: 'Droit pénal',
     excerpt: "Droit au silence, droit à un avocat, durée de la retenue : les règles à connaître avant d'être interrogé.",
     body: "Toute personne interpellée par le LSPD ou le BCSO peut demander l'assistance d'un avocat avant son interrogatoire.\n\nDemandez explicitement votre avocat, ne signez aucune déclaration sans l'avoir relue et notez l'heure de votre interpellation. Notre permanence pénale peut être contactée depuis le site ou depuis notre serveur Discord." },

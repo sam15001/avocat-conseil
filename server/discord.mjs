@@ -29,7 +29,7 @@ export async function notify(channelKey, embed) {
     if (!channel) return { skipped: 'no-channel' };
     const r = await discordFetch(`/channels/${channel}/messages`, {
       method: 'POST',
-      body: { embeds: [{ color: COLORS[channelKey] ?? GOLD, timestamp: new Date().toISOString(), footer: { text: 'AVOCAT & CONSEIL' }, ...embed }], allowed_mentions: { parse: [] } }
+      body: { embeds: [{ color: COLORS[channelKey] ?? GOLD, timestamp: new Date().toISOString(), footer: { text: 'Dominion Law Firm - Avocat & Conseil' }, ...embed }], allowed_mentions: { parse: [] } }
     });
     if (!r.ok) console.error('[discord] notify', channelKey, r.status, r.data);
     return r;
@@ -50,7 +50,7 @@ export function welcomeMessage() {
   return {
     embeds: [{
       color: GOLD,
-      title: 'AVOCAT & CONSEIL — Cabinet d’avocats à Los Santos',
+      title: 'Dominion Law Firm - Avocat & Conseil — Cabinet d’avocats à Los Santos',
       description: [
         'Toutes les démarches se font sur **notre site** : c’est là que votre dossier reçoit un numéro et que vous suivez son avancement.',
         '',
@@ -80,7 +80,7 @@ export async function dm(discordId, embed, buttons = [['Ouvrir mon espace client
     const ch = await discordFetch('/users/@me/channels', { method: 'POST', body: { recipient_id: discordId } });
     if (!ch.ok) return ch;
     return await discordFetch(`/channels/${ch.data.id}/messages`, {
-      method: 'POST', body: { embeds: [{ color: GOLD, footer: { text: 'AVOCAT & CONSEIL' }, ...embed }], ...(buttons?.length ? { components: linkButtons(...buttons) } : {}) }
+      method: 'POST', body: { embeds: [{ color: GOLD, footer: { text: 'Dominion Law Firm - Avocat & Conseil' }, ...embed }], ...(buttons?.length ? { components: linkButtons(...buttons) } : {}) }
     });
   } catch (e) { return { error: e.message }; }
 }

@@ -59,7 +59,7 @@ async function showArticle(slug) {
   const root = $('#news-root');
   try {
     const { article: a } = await api(`/public/news/${encodeURIComponent(slug)}`);
-    document.title = `${a.title} — AVOCAT & CONSEIL`;
+    document.title = `${a.title} — Dominion Law Firm - Avocat & Conseil`;
     $('#news-head .wrap').innerHTML = `<nav class="breadcrumb" aria-label="Fil d'Ariane"><a href="/">Accueil</a><span>/</span><a href="/actualites.html">Actualités</a><span>/</span><span>${esc(a.category)}</span></nav>
       <h1>${esc(a.title)}</h1><p class="lede">${esc(a.excerpt)}</p><p class="muted">${fmtDate(a.created_at)}</p>`;
     root.innerHTML = `${a.image ? `<figure class="photo article-cover"><img src="${esc(a.image)}" alt=""></figure>` : ''}<article class="prose article-body" style="max-width:720px">${a.body.split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join('')}</article>

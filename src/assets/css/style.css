@@ -1,4 +1,4 @@
-/* AVOCAT & CONSEIL — feuille de style
+/* Dominion Law Firm - Avocat & Conseil — feuille de style
    Noir profond, blanc cassé, bronze, anthracite.
    Display : Bodoni Moda · Texte : Hanken Grotesk */
 
@@ -938,3 +938,27 @@ details > .recap-list { margin-top: 8px; }
 .doc-terms dt { font-weight: 600; color: var(--bronze); font-size: .9rem; margin-bottom: 3px; }
 .doc-terms dd { margin: 0; color: var(--paper-dim); font-size: .92rem; line-height: 1.55; }
 .doc-terms p { margin: 0; font-size: .9rem; }
+/* En-tête : nom long « Dominion Law Firm » + boutons thème et recherche */
+@media (max-width: 1520px) and (min-width: 1181px) {
+  .site-header .wrap { gap: 18px; }
+  .main-nav { gap: 18px; margin-right: 0; }
+  .main-nav a { font-size: .9rem; }
+  .header-actions { gap: 8px; }
+  .account-btn .account-name { display: none; }
+  .account-btn { padding: 4px; }
+  .btn-rdv { padding: 11px 16px; }
+}
+@media (max-width: 1360px) and (min-width: 1181px) { .wm-sub { display: none; } .wm-name { font-size: 1.12rem; } .header-actions .btn-rdv { font-size: 0; gap: 0; padding: 11px 13px; } .header-actions .btn-rdv svg { width: 18px; height: 18px; } }
+@media (max-width: 640px) {
+  .header-actions .search-btn:not(.theme-btn) { display: none; }
+  .search-btn { width: 38px; height: 38px; }
+  .site-header .wrap { gap: 10px; }
+  .header-actions { gap: 6px; }
+}
+@media (max-width: 440px) {
+  .wm-name { font-size: clamp(.66rem, 2.9vw, .82rem); letter-spacing: 0; }
+  .site-header .wrap { gap: 8px; }
+  .brand .crest, .brand svg { width: 30px; height: 30px; }
+  .header-actions .btn, .header-actions .account-btn { padding: 7px 10px; font-size: .8rem; }
+  .nav-toggle { width: 38px; height: 38px; }
+}

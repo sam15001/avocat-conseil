@@ -37,4 +37,4 @@ http.createServer(async (req, res) => {
     console.error(e);
     res.writeHead(500); res.end('Erreur serveur');
   }
-}).listen(PORT, () => console.log(`AVOCAT & CONSEIL — http://localhost:${PORT}`));
+}).listen(PORT, () => console.log(`Dominion Law Firm - Avocat & Conseil — http://localhost:${PORT}`));

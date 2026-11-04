@@ -1,6 +1,6 @@
 // Configuration éditoriale du site. Modifier ici, puis relancer « npm run build » (Netlify le fait à chaque déploiement).
 export default {
-  name: 'AVOCAT & CONSEIL',
+  name: 'Dominion Law Firm - Avocat & Conseil',
   tagline: 'Votre défense, notre engagement.',
   notice: 'Cabinet d’avocats · Droit de l’État de FratWorld · Consultations sur rendez-vous',
   address: ['Portola Drive, Rockford Hills', 'Los Santos, San Andreas'],

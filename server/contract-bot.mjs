@@ -86,7 +86,7 @@ export async function contractModal(interaction) {
   const emp = `${c.employee.first_name} ${c.employee.last_name}`;
   const msg = forWho => ({ embeds: [{ color: GOLD, title: `${CONTRACT_TYPES[c.type]} — ${c.ref}`,
     description: `${forWho}\n\n**Entreprise :** ${c.company}\n**Salarié :** ${emp} · ${c.position}\n**Prise de fonction :** ${dateFr(c.start_date)}\n\nLisez le contrat joint, puis signez-le avec le bouton ci-dessous. Après les deux signatures, un avocat du cabinet le valide et vous recevez la version définitive.`,
-    footer: { text: 'AVOCAT & CONSEIL · Signature électronique' } }], components: signButtons(c.id) });
+    footer: { text: 'Dominion Law Firm - Avocat & Conseil · Signature électronique' } }], components: signButtons(c.id) });
   const [r1, r2] = await Promise.all([
     dmFile(c.employer_discord_id, msg('Votre contrat est prêt : vous signez **pour l’entreprise**.'), filename(c), pdf),
     dmFile(c.employee_discord_id, msg(`**${c.company}** vous propose un contrat de travail : vous signez **en tant que salarié**.`), filename(c), pdf)
@@ -112,7 +112,7 @@ export async function contractButton(interaction) {
     const name = `Maître ${(lawyer?.display_name || who.site?.rp_name || nameOf(u, interaction.member)).replace(/^(Me|Maître)\s+/i, '')}`;
     const v = await signContract(c, 'cabinet', { name, discord_id: u.id });
     const pdf = await contractPdf(v);
-    const final = text => ({ embeds: [{ color: 0x8FA67A, title: `Contrat validé — ${v.ref}`, description: text, footer: { text: 'AVOCAT & CONSEIL · Version définitive signée' } }] });
+    const final = text => ({ embeds: [{ color: 0x8FA67A, title: `Contrat validé — ${v.ref}`, description: text, footer: { text: 'Dominion Law Firm - Avocat & Conseil · Version définitive signée' } }] });
     await Promise.all([
       dmFile(v.employer_discord_id, final(`Le contrat de **${v.employee.first_name} ${v.employee.last_name}** est signé par les deux parties et validé par ${name}. Voici la version définitive.`), filename(v), pdf),
       dmFile(v.employee_discord_id, final(`Votre contrat avec **${v.company}** est signé et validé par ${name}. Voici la version définitive, à conserver.`), filename(v), pdf)

@@ -102,7 +102,8 @@ export async function contractPdf(c) {
   let page, y;
   const newPage = () => {
     page = pdf.addPage([W, H]); y = H - M;
-    page.drawText(clean(site.name).toUpperCase(), { x: W / 2 - F.s.widthOfTextAtSize(clean(site.name).toUpperCase(), 64) / 2, y: H / 2 - 20, size: 64, font: F.s, color: GOLD, opacity: 0.05, rotate: { type: 'degrees', angle: 35 } });
+    const wm = clean(site.name).toUpperCase(), ws = Math.min(64, (640 / F.s.widthOfTextAtSize(wm, 64)) * 64);
+    page.drawText(wm, { x: W / 2 - F.s.widthOfTextAtSize(wm, ws) * 0.41, y: H / 2 - F.s.widthOfTextAtSize(wm, ws) * 0.29, size: ws, font: F.s, color: GOLD, opacity: 0.05, rotate: { type: 'degrees', angle: 35 } });
   };
   const wrap = (text, font, size, width) => {
     const words = clean(text).split(/\s+/), lines = []; let line = '';

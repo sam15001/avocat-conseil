@@ -1,10 +1,10 @@
-# AVOCAT & CONSEIL — site du cabinet (GTA V RP)
+# Dominion Law Firm - Avocat & Conseil — site du cabinet (GTA V RP)
 
 Site complet d'un cabinet d'avocats pour serveur FiveM : pages publiques, espace client, espace avocat, administration, connexion Discord, notifications et commandes Discord.
 
 **Stack** : pages statiques + fonctions Netlify (Node 20) · Firebase Realtime Database (comme PDM) · Discord OAuth2 · bot Discord en mode HTTP (aucun processus à laisser tourner, tout est gratuit).
 
-Le guide pas à pas pour débutant est le document « Guide de mise en ligne — AVOCAT & CONSEIL ». Ce README est la référence technique.
+Le guide pas à pas pour débutant est le document « Guide de mise en ligne — Dominion Law Firm - Avocat & Conseil ». Ce README est la référence technique.
 
 ---
 
@@ -42,7 +42,7 @@ Rien à créer à la main : au premier appel, le site remplit la base (catalogue
 
 ### Étape B — Application Discord
 
-Sur <https://discord.com/developers/applications> → **New Application** (nom : AVOCAT & CONSEIL).
+Sur <https://discord.com/developers/applications> → **New Application** (nom : Dominion Law Firm - Avocat & Conseil).
 
 1. **General Information** : copiez `APPLICATION ID` → `DISCORD_APPLICATION_ID` et `PUBLIC KEY` → `DISCORD_PUBLIC_KEY`.
 2. **OAuth2** :

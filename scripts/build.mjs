@@ -23,7 +23,7 @@ const docTerms = () => `<div class="doc-terms"><h3>Service B2B documentaire : co
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export const MARK = crest('crest');
-const WORDMARK = `<span class="wordmark"><span class="wm-name">Avocat &amp; Conseil</span><span class="wm-sub">Cabinet juridique · Los Santos</span></span>`;
+const WORDMARK = `<span class="wordmark"><span class="wm-name">Dominion Law Firm</span><span class="wm-sub">Avocat &amp; Conseil · Los Santos</span></span>`;
 const ARROW = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 7h12M8 2l5 5-5 5"/></svg>`;
 const DISCORD = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.3 4.4A19.6 19.6 0 0 0 15.4 3l-.6 1.3a18.2 18.2 0 0 0-5.6 0L8.6 3a19.5 19.5 0 0 0-4.9 1.5C.6 9.1-.3 13.6.1 18.1a19.8 19.8 0 0 0 6 3l1.3-2a12.8 12.8 0 0 1-2-1l.5-.4a14.1 14.1 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2a19.7 19.7 0 0 0 6-3c.5-5.2-.8-9.7-3.6-13.7ZM8 15.4c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.6 8 10.6s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Z"/></svg>`;
 
@@ -106,7 +106,7 @@ function layout({ title, desc, nav, body, script, page }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
-<meta name="description" content="${esc(desc || 'Cabinet d\'avocats AVOCAT & CONSEIL à Los Santos.')}">
+<meta name="description" content="${esc(desc || 'Cabinet d\'avocats Dominion Law Firm - Avocat & Conseil à Los Santos.')}">
 <meta name="theme-color" content="#09090A">
 <meta name="color-scheme" content="dark light">
 <script>try{var t=localStorage.getItem('ac_theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.dataset.theme=t;if(t==='light')document.querySelector('meta[name=theme-color]').content='#FFFFFF'}catch(e){}</script>
@@ -197,7 +197,7 @@ for (const d of DOMAINS) {
   </div>
 </section>`;
   fs.writeFileSync(path.join(OUT, 'expertises', `${d.slug}.html`), layout({
-    title: `${d.name} — AVOCAT & CONSEIL`, desc: d.short, nav: 'expertises', body, script: 'public.mjs', page: 'domaine'
+    title: `${d.name} — Dominion Law Firm - Avocat & Conseil`, desc: d.short, nav: 'expertises', body, script: 'public.mjs', page: 'domaine'
   }));
   count++;
 }
