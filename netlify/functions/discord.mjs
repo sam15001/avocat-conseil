@@ -1,3 +1,3 @@
 import { interactionsHandler } from '../../server/api.mjs';
 
-export default async (req) => interactionsHandler(req);
+export default async (req, context) => interactionsHandler(req, context);

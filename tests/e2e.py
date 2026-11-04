@@ -43,7 +43,10 @@ def api(page, path, method='GET', body=None):
     except Exception: data = None
     return r.status, data
 
+TOK = iter(range(1, 10**6))
 def interaction(payload):
+    payload = {'application_id': '100000000000000001', 'token': f'tok{next(TOK)}', **payload}
+    LAST['token'] = payload['token']
     raw = json.dumps(payload)
     ts = str(int(time.time()))
     sig = KEY.sign((ts + raw).encode()).hex()
@@ -60,6 +63,10 @@ def next_weekday(wd):  # 0 = dimanche, comme en base
     return d
 
 errors = []
+LAST = {}
+def followup():  # contenu envoyé après une réponse différée
+    m = [x for x in messages() if x['channel'] == 'webhook:' + LAST['token']]
+    return m[-1] if m else {}
 with sync_playwright() as p:
     browser = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     mock('/mock/messages', 'DELETE')
@@ -509,7 +516,8 @@ with sync_playwright() as p:
     resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])}); modal_id = resp['data']['custom_id']
     mock('/mock/messages', 'DELETE')
     resp = interaction({'type': 5, 'data': {'custom_id': modal_id, 'components': fields({'nom': 'Anakin', 'prenom': 'Bow', 'naissance': '27/05/2000', 'lieu_naissance': 'Los Santos', 'clauses': 'Véhicule de service.\nPrime de 200 $ par objectif.'})}, 'member': member(CIT, [])})
-    check('Questionnaire envoyé : contrat généré', 'AC-CT-' in resp['data']['content'] and resp['data']['flags'] == 64, resp)
+    check('Questionnaire envoyé : réponse immédiate « en cours » (délai Discord de 3 s)', resp['type'] == 5 and resp['data']['flags'] == 64, resp)
+    check('… puis confirmation : contrat généré', 'AC-CT-' in followup().get('content', ''), followup())
     dms = [x for x in messages() if x['channel'] in (f'dm-{CIT}', f'dm-{CIT2}')]
     check('PDF envoyé en privé à l’employeur et au salarié, avec bouton « Signer »', len(dms) == 2 and all(x['file']['pdf'] and x['file']['filename'].startswith('AC-CT-') for x in dms)
           and all(x['components'][0]['components'][0]['custom_id'].startswith('csign:') for x in dms), dms)
@@ -523,7 +531,7 @@ with sync_playwright() as p:
     check('Double signature impossible', 'déjà signé' in r1b['data']['content'], r1b)
     mock('/mock/messages', 'DELETE')
     r2 = interaction({'type': 3, 'data': {'custom_id': sign_id}, 'user': {'id': CIT, 'username': 'tony_m'}})
-    check('L’employeur signe : contrat transmis au cabinet pour validation', r2['type'] == 7 and 'avocat du cabinet' in r2['data']['content'], r2)
+    check('L’employeur signe : contrat transmis au cabinet pour validation', r2['type'] == 6 and 'avocat du cabinet' in followup().get('content', ''), (r2, followup()))
     vmsg = [x for x in messages() if x['channel'] == CH['requests']]
     valid_id = vmsg[0]['components'][0]['components'][0]['custom_id'] if vmsg else ''
     check('Salon du cabinet : bouton « Valider pour le cabinet »', valid_id.startswith('cvalid:'), vmsg)
@@ -531,7 +539,7 @@ with sync_playwright() as p:
     check('Validation refusée à un non-avocat', 'avocats' in rv['data']['content'], rv)
     mock('/mock/messages', 'DELETE')
     rv = interaction({'type': 3, 'data': {'custom_id': valid_id}, 'member': member(AV1, ['400000000000000001'])})
-    check('Un avocat valide : version définitive envoyée aux deux parties', rv['type'] == 7 and 'validé par Maître Harvey Collins' in rv['data']['content']
+    check('Un avocat valide : version définitive envoyée aux deux parties', rv['type'] == 6 and 'validé par Maître Harvey Collins' in followup().get('content', '')
           and len([x for x in messages() if x['channel'] in (f'dm-{CIT}', f'dm-{CIT2}') and x.get('file', {}).get('pdf')]) == 2, rv)
     ct = api(r, '/admin/contracts')[1]['contracts'][0]
     check('Administration : contrat validé, 3 signatures', ct['status'] == 'valide' and all(k in ct['signatures'] for k in ('employer', 'employee', 'cabinet')), ct)

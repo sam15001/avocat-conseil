@@ -1,6 +1,5 @@
 // Contrats de travail générés depuis Discord (/contrat) : PDF, signatures employeur et salarié, validation du cabinet.
 // Le contenu ne cite que des textes publiés de FratWorld (décret 2026-011 sur la tenue de travail, CGI 220-4 sur les salaires).
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import site from '../site.config.mjs';
 import { all, get, insert, update, now, nextId } from './store.mjs';
 
@@ -91,9 +90,11 @@ function articles(c) {
 }
 
 // ── Mise en page PDF (A4)
-const GOLD = rgb(0.69, 0.55, 0.34), INK = rgb(0.1, 0.1, 0.12), MUTED = rgb(0.42, 0.42, 0.45), SOFT = rgb(0.98, 0.97, 0.95), LINE = rgb(0.85, 0.8, 0.72);
 
 export async function contractPdf(c) {
+  // pdf-lib n'est chargé qu'ici : les commandes Discord répondent vite, même au démarrage à froid
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const GOLD = rgb(0.69, 0.55, 0.34), INK = rgb(0.1, 0.1, 0.12), MUTED = rgb(0.42, 0.42, 0.45), SOFT = rgb(0.98, 0.97, 0.95), LINE = rgb(0.85, 0.8, 0.72);
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${CONTRACT_TYPES[c.type]} — ${c.ref}`); pdf.setAuthor(site.name); pdf.setCreator(site.name);
   const F = { r: await pdf.embedFont(StandardFonts.Helvetica), b: await pdf.embedFont(StandardFonts.HelveticaBold), i: await pdf.embedFont(StandardFonts.HelveticaOblique),

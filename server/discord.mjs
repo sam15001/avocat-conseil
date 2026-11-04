@@ -202,3 +202,7 @@ export async function channelFile(channelKey, payload, filename, buffer) {
     return await sendFile(channel, payload, filename, buffer);
   } catch (e) { return { ok: false, error: e.message }; }
 }
+
+// Modifie la réponse d'une interaction déjà « différée » (délai de 15 minutes au lieu de 3 secondes)
+export const editOriginal = (interaction, body) =>
+  discordFetch(`/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`, { method: 'PATCH', bot: false, body: { allowed_mentions: { parse: [] }, ...body } });

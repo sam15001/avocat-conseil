@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { all, rtdb, now } from './store.mjs';
 import { getSettings, roleFromDiscordRoles } from './config.mjs';
 import { CONTRACT_TYPES, contractStatus, contractPdf, createContract, getContract, signContract, refuseContract, parseBirth, dateFr } from './contracts.mjs';
-import { dmFile, channelFile, linkButtons, discordFetch } from './discord.mjs';
+import { dmFile, channelFile, linkButtons, discordFetch, editOriginal } from './discord.mjs';
 
 const GOLD = 0xB08D57;
 export const CONTRACT_COMMAND = {
@@ -82,6 +82,11 @@ export async function contractModal(interaction) {
   const c = await createContract({ ...d, employee: { last_name: field(interaction, 'nom'), first_name: field(interaction, 'prenom'), birth_date: birth, birth_place: field(interaction, 'lieu_naissance') },
     clauses: field(interaction, 'clauses') || null, missions: d.missions || [] });
   await rtdb.del(`drafts/contracts/${nonce}`);
+  // Discord exige une réponse en 3 secondes : on répond « en cours » puis on envoie le PDF
+  return { defer: { type: 5, data: { flags: 64 } }, after: async () => editOriginal(interaction, (await sendForSignature(c)).data) };
+}
+
+async function sendForSignature(c) {
   const pdf = await contractPdf(c);
   const emp = `${c.employee.first_name} ${c.employee.last_name}`;
   const msg = forWho => ({ embeds: [{ color: GOLD, title: `${CONTRACT_TYPES[c.type]} — ${c.ref}`,
@@ -111,6 +116,14 @@ export async function contractButton(interaction) {
     const lawyer = (await all('lawyers')).find(l => l.user_id === who.site?.id);
     const name = `Maître ${(lawyer?.display_name || who.site?.rp_name || nameOf(u, interaction.member)).replace(/^(Me|Maître)\s+/i, '')}`;
     const v = await signContract(c, 'cabinet', { name, discord_id: u.id });
+    return { defer: { type: 6 }, after: async () => editOriginal(interaction, (await finalize(v, name)).data) };
+  }
+  return partyButton(interaction, action, c, u, done);
+}
+
+async function finalize(v, name) {
+  const done = text => ({ type: 7, data: { content: text, components: [] } });
+  {
     const pdf = await contractPdf(v);
     const final = text => ({ embeds: [{ color: 0x8FA67A, title: `Contrat validé — ${v.ref}`, description: text, footer: { text: 'Dominion Law Firm - Avocat & Conseil · Version définitive signée' } }] });
     await Promise.all([
@@ -119,7 +132,9 @@ export async function contractButton(interaction) {
     ]);
     return done(`✅ **${v.ref}** validé par ${name} le ${dateFr(now())}. La version définitive a été envoyée aux deux parties.`);
   }
+}
 
+async function partyButton(interaction, action, c, u, done) {
   const party = u.id === c.employer_discord_id ? 'employer' : u.id === c.employee_discord_id ? 'employee' : null;
   if (!party) return eph('Ce contrat ne vous concerne pas.');
   if (c.status === 'refuse') return done(`Ce contrat a été refusé par ${c.refused_by}.`);
@@ -135,11 +150,16 @@ export async function contractButton(interaction) {
   }
 
   const s = await signContract(c, party, { name: myName, discord_id: u.id });
-  if (s.status === 'validation') {
+  if (s.status === 'validation') return { defer: { type: 6 }, after: async () => editOriginal(interaction, (await toCabinet(s)).data) };
+  return done(`✍️ Signé le ${dateFr(now())}. Le contrat attend encore la signature de ${party === 'employer' ? 'votre salarié' : 'l’entreprise'}.`);
+}
+
+async function toCabinet(s) {
+  const done = text => ({ type: 7, data: { content: text, components: [] } });
+  {
     const pdf = await contractPdf(s);
     await channelFile('requests', { embeds: [{ color: GOLD, title: `Contrat à valider — ${s.ref}`, description: `Signé par l’entreprise (${s.employer_name}) et par le salarié (${s.employee.first_name} ${s.employee.last_name}). Relisez le contrat joint, puis validez-le pour le cabinet.` }],
       components: [{ type: 1, components: [{ type: 2, style: 1, label: 'Valider pour le cabinet', custom_id: `cvalid:${s.id}`, emoji: { name: '⚖️' } }] }] }, filename(s), pdf);
     return done(`✍️ Signé le ${dateFr(now())}. Les deux parties ont signé : un avocat du cabinet valide maintenant le contrat, puis vous recevrez la version définitive.`);
   }
-  return done(`✍️ Signé le ${dateFr(now())}. Le contrat attend encore la signature de ${party === 'employer' ? 'votre salarié' : 'l’entreprise'}.`);
 }
