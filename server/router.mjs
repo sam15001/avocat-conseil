@@ -67,6 +67,22 @@ async function diagnostic() {
   if (fu && !/^https:\/\/[^/]+\.(firebaseio\.com|firebasedatabase\.app)\/?$/.test(fu)) out.variables.FIREBASE_DATABASE_URL = `INCORRECTE (« ${fu} ») : copiez l'URL affichée en haut de Realtime Database`;
   try { await rtdb.get('meta/seeded'); out.tests.firebase = 'ok'; }
   catch (e) { out.tests.firebase = 'ÉCHEC : ' + String(e.message).replace(/(auth|access_token)=[^&\s"']+/g, '$1=***'); }
+  // Discord : application, clé publique et adresse des commandes (sans jamais afficher de secret)
+  if (E('DISCORD_BOT_TOKEN')) {
+    try {
+      const r = await fetch(`${process.env.DISCORD_API_BASE || 'https://discord.com/api/v10'}/applications/@me`, { headers: { authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` } });
+      const app = await r.json().catch(() => ({}));
+      if (!r.ok) out.tests.discord_bot = `ÉCHEC (${r.status}) : DISCORD_BOT_TOKEN refusé par Discord`;
+      else {
+        const expected = (su.replace(/\/$/, '') || '') + '/api/discord/interactions';
+        out.tests.discord_bot = `ok (${app.name})`;
+        out.tests.discord_application_id = app.id === (process.env.DISCORD_APPLICATION_ID || '').trim() ? 'ok' : 'DIFFÉRENT : le bot et DISCORD_APPLICATION_ID ne viennent pas de la même application';
+        out.tests.discord_public_key = (app.verify_key || '') === (process.env.DISCORD_PUBLIC_KEY || '').trim() ? 'ok' : 'DIFFÉRENTE : copiez la Public Key de General Information dans DISCORD_PUBLIC_KEY';
+        out.tests.discord_interactions_url = !app.interactions_endpoint_url ? `MANQUANTE : collez ${expected} dans General Information → Interactions Endpoint URL`
+          : app.interactions_endpoint_url === expected ? 'ok' : `DIFFÉRENTE (« ${app.interactions_endpoint_url} ») : mettez ${expected}`;
+      }
+    } catch (e) { out.tests.discord_bot = 'ÉCHEC : Discord injoignable'; }
+  }
   out.redirect_uri_a_declarer_dans_discord = (su.replace(/\/$/, '') || '(SITE_URL manquante)') + '/api/auth/callback';
   return json(out, 200, { 'cache-control': 'no-store' });
 }

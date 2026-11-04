@@ -52,6 +52,7 @@ http.createServer(async (req, res) => {
   const wh = p.match(/^\/webhooks\/\d+\/([\w-]+)\/messages\/@original$/);
   if (wh && req.method === 'PATCH') { messages.push({ channel: 'webhook:' + wh[1], ...JSON.parse(body) }); return send(res, 200, { id: 'orig' }); }
   if (req.headers.authorization !== 'Bot test-bot-token') return send(res, 401, { message: '401: Unauthorized' });
+  if (p === '/applications/@me') return send(res, 200, { id: process.env.MOCK_APP_ID || '100000000000000001', name: 'Bot de test', verify_key: process.env.MOCK_VERIFY_KEY || '', interactions_endpoint_url: `${SITE}/api/discord/interactions` });
   if (p === '/users/@me/channels' && req.method === 'POST') return send(res, 200, { id: 'dm-' + JSON.parse(body).recipient_id });
   if (/^\/applications\/\d+\/guilds\/\d+\/commands$/.test(p) && req.method === 'PUT') return send(res, 200, JSON.parse(body).map((c, i) => ({ id: String(900 + i), ...c })));
   const m = p.match(/^\/channels\/([\w-]+)\/messages$/);
