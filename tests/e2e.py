@@ -437,7 +437,7 @@ with sync_playwright() as p:
     pub.request.post(BASE + '/api/public/contact', headers=H, data=json.dumps({'name': 'Test', 'contact': 'x', 'subject': 'Salon modifié', 'message': 'Vérifie le nouveau salon admin.'}))
     check('Salon modifié dans l’administration pris en compte par le bot', any('Salon modifié' in m['embeds'][0]['title'] for m in messages('300000000000000099')))
     st, cm = api(d, '/admin/discord/commands', 'POST')
-    check('Bouton « Installer les commandes Discord » (9 commandes)', st == 200 and len(cm['commands']) == 9 and '/rdv' in cm['commands'], cm)
+    check('Bouton « Installer les commandes Discord » (10 commandes)', st == 200 and len(cm['commands']) == 10 and '/contrat' in cm['commands'], cm)
     st, tc = api(d, '/admin/discord/test', 'POST')
     check('Bouton « Tester les salons » : 5 salons joignables', st == 200 and all(x['ok'] for x in tc['results']) and len(tc['results']) == 5, tc)
     check('Outils Discord réservés à la direction', api(r, '/admin/discord/commands', 'POST')[0] == 403)
@@ -489,6 +489,63 @@ with sync_playwright() as p:
     art = api(pub, '/public/news/' + nw['news']['slug'])[1]['article']
     check('Actualité modifiée : titre changé, image retirée', art['title'] == 'Nouveaux locaux' and art['image'] is None, art)
     api(d, f"/admin/news/{nw['news']['id']}", 'DELETE')
+
+    print('\n[10c] Contrats de travail via Discord (/contrat)')
+    CIT, CIT2, AV1 = '500000000000000002', '500000000000000003', '500000000000000004'
+    copts = [{'name': 'type', 'value': 'CDI'}, {'name': 'salarie', 'value': CIT2}, {'name': 'entreprise', 'value': 'LTD - F4L'}, {'name': 'poste', 'value': 'Manager'},
+             {'name': 'salaire', 'value': 1500}, {'name': 'missions', 'value': 'Recrutement; Gestion des stocks'}, {'name': 'siege', 'value': 'Davis / Groove Street'}, {'name': 'fonction', 'value': 'PDG'}]
+    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])})
+    check('Sans accès au service : /contrat refusé avec lien vers l’offre', resp['data']['flags'] == 64 and 'abonnées' in resp['data']['content'], resp)
+    cid = [x for x in api(r, '/admin/clients')[1]['clients'] if x['discord_id'] == CIT][0]['id']
+    check('Admin : accès au service de rédaction accordé au client', api(r, f'/admin/users/{cid}', 'PATCH', {'documents_access': True})[0] == 200)
+    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': [o for o in copts if o['name'] != 'salarie'] + [{'name': 'salarie', 'value': CIT}]}, 'member': member(CIT, [])})
+    check('Salarié = soi-même : refusé', 'autre personne' in resp['data']['content'], resp)
+    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])})
+    check('/contrat ouvre le questionnaire (nom, prénom, naissance, lieu, clauses)', resp['type'] == 9 and len(resp['data']['components']) == 5, resp)
+    modal_id = resp['data']['custom_id']
+    fields = lambda d: [{'type': 1, 'components': [{'type': 4, 'custom_id': k, 'value': v}]} for k, v in d.items()]
+    bad = interaction({'type': 5, 'data': {'custom_id': modal_id, 'components': fields({'nom': 'Anakin', 'prenom': 'Bow', 'naissance': '2000-13-45x', 'lieu_naissance': 'LS', 'clauses': ''})}, 'member': member(CIT, [])})
+    check('Date de naissance invalide refusée', 'invalide' in bad['data']['content'], bad)
+    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])}); modal_id = resp['data']['custom_id']
+    mock('/mock/messages', 'DELETE')
+    resp = interaction({'type': 5, 'data': {'custom_id': modal_id, 'components': fields({'nom': 'Anakin', 'prenom': 'Bow', 'naissance': '27/05/2000', 'lieu_naissance': 'Los Santos', 'clauses': 'Véhicule de service.\nPrime de 200 $ par objectif.'})}, 'member': member(CIT, [])})
+    check('Questionnaire envoyé : contrat généré', 'AC-CT-' in resp['data']['content'] and resp['data']['flags'] == 64, resp)
+    dms = [x for x in messages() if x['channel'] in (f'dm-{CIT}', f'dm-{CIT2}')]
+    check('PDF envoyé en privé à l’employeur et au salarié, avec bouton « Signer »', len(dms) == 2 and all(x['file']['pdf'] and x['file']['filename'].startswith('AC-CT-') for x in dms)
+          and all(x['components'][0]['components'][0]['custom_id'].startswith('csign:') for x in dms), dms)
+    check('Le cabinet est prévenu dans le salon des demandes', any(x['channel'] == CH['requests'] and x.get('file', {}).get('pdf') for x in messages()))
+    sign_id = dms[0]['components'][0]['components'][0]['custom_id']
+    r_other = interaction({'type': 3, 'data': {'custom_id': sign_id}, 'user': {'id': '500000000000000006', 'username': 'marcus'}})
+    check('Un tiers ne peut pas signer', 'ne vous concerne pas' in r_other['data']['content'], r_other)
+    r1 = interaction({'type': 3, 'data': {'custom_id': sign_id}, 'user': {'id': CIT2, 'username': 'lucia'}})
+    check('Le salarié signe depuis son message privé', r1['type'] == 7 and 'attend encore' in r1['data']['content'], r1)
+    r1b = interaction({'type': 3, 'data': {'custom_id': sign_id}, 'user': {'id': CIT2, 'username': 'lucia'}})
+    check('Double signature impossible', 'déjà signé' in r1b['data']['content'], r1b)
+    mock('/mock/messages', 'DELETE')
+    r2 = interaction({'type': 3, 'data': {'custom_id': sign_id}, 'user': {'id': CIT, 'username': 'tony_m'}})
+    check('L’employeur signe : contrat transmis au cabinet pour validation', r2['type'] == 7 and 'avocat du cabinet' in r2['data']['content'], r2)
+    vmsg = [x for x in messages() if x['channel'] == CH['requests']]
+    valid_id = vmsg[0]['components'][0]['components'][0]['custom_id'] if vmsg else ''
+    check('Salon du cabinet : bouton « Valider pour le cabinet »', valid_id.startswith('cvalid:'), vmsg)
+    rv = interaction({'type': 3, 'data': {'custom_id': valid_id}, 'member': member(CIT, [])})
+    check('Validation refusée à un non-avocat', 'avocats' in rv['data']['content'], rv)
+    mock('/mock/messages', 'DELETE')
+    rv = interaction({'type': 3, 'data': {'custom_id': valid_id}, 'member': member(AV1, ['400000000000000001'])})
+    check('Un avocat valide : version définitive envoyée aux deux parties', rv['type'] == 7 and 'validé par Maître Harvey Collins' in rv['data']['content']
+          and len([x for x in messages() if x['channel'] in (f'dm-{CIT}', f'dm-{CIT2}') and x.get('file', {}).get('pdf')]) == 2, rv)
+    ct = api(r, '/admin/contracts')[1]['contracts'][0]
+    check('Administration : contrat validé, 3 signatures', ct['status'] == 'valide' and all(k in ct['signatures'] for k in ('employer', 'employee', 'cabinet')), ct)
+    pdfr = r.request.get(BASE + f"/api/admin/contracts/{ct['id']}/pdf")
+    check('PDF téléchargeable depuis l’administration', pdfr.status == 200 and pdfr.body()[:5] == b'%PDF-')
+    check('PDF réservé à l’équipe', c.request.get(BASE + f"/api/admin/contracts/{ct['id']}/pdf").status == 403)
+    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': [{'name': 'type', 'value': 'CDD'}] + [o for o in copts if o['name'] != 'type'] + [{'name': 'duree', 'value': '3 mois'}]}, 'member': member(CIT, [])})
+    resp = interaction({'type': 5, 'data': {'custom_id': resp['data']['custom_id'], 'components': fields({'nom': 'Reyes', 'prenom': 'Lucia', 'naissance': '01/02/1999', 'lieu_naissance': 'Sandy Shores', 'clauses': ''})}, 'member': member(CIT, [])})
+    cdd = api(r, '/admin/contracts')[1]['contracts'][0]
+    rr = interaction({'type': 3, 'data': {'custom_id': f"crefuse:{cdd['id']}"}, 'user': {'id': CIT2, 'username': 'lucia'}})
+    check('CDD refusé par le salarié : contrat marqué refusé', 'refusé' in rr['data']['content'] and api(r, '/admin/contracts')[1]['contracts'][0]['status'] == 'refuse', rr)
+    r.goto(BASE + '/administration.html#contrats'); r.wait_for_selector('[data-panel=contrats] table.data')
+    check('Onglet « Contrats » de l’administration', r.locator('[data-panel=contrats] tbody tr').count() == 2)
+    r.screenshot(path=f'{SHOTS}/19-admin-contrats.png', full_page=True)
 
     print('\n[11] Mobile')
     m_ctx, m = login(browser, 'citoyen', mobile=True)

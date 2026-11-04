@@ -8,6 +8,7 @@ const recent = (a, b) => String(b.updated_at).localeCompare(String(a.updated_at)
 import { HttpError } from './http.mjs';
 import { STATUSES, STATUS_BY_KEY, DOMAIN_BY_SLUG } from '../shared/domains.mjs';
 import { formatDateFr, linkButtons, welcomeMessage } from './discord.mjs';
+import { CONTRACT_COMMAND, contractCommand, contractModal, contractButton } from './contract-bot.mjs';
 
 // Commandes ouvertes à tous : elles renvoient vers le site
 export const PUBLIC_COMMANDS = [
@@ -18,6 +19,7 @@ export const PUBLIC_COMMANDS = [
 
 export const COMMANDS = [
   ...PUBLIC_COMMANDS,
+  CONTRACT_COMMAND,
   { name: 'dossiers', description: 'Lister les nouvelles demandes ou vos dossiers en cours',
     options: [{ type: 3, name: 'filtre', description: 'Quels dossiers afficher', required: false,
       choices: [{ name: 'Nouvelles demandes', value: 'nouvelles' }, { name: 'Mes dossiers', value: 'mes' }, { name: 'Tous les dossiers actifs', value: 'actifs' }] }] },
@@ -87,6 +89,12 @@ export const handleInteraction = interaction => withCache(() => handleInner(inte
 
 async function handleInner(interaction) {
   if (interaction.type === 1) return { type: 1 }; // PING
+  try {
+    // Contrats : questionnaire (5), boutons de signature et de validation (3)
+    if (interaction.type === 5 && interaction.data?.custom_id?.startsWith('contrat:')) return await contractModal(interaction);
+    if (interaction.type === 3 && /^(csign|crefuse|cvalid):/.test(interaction.data?.custom_id || '')) return await contractButton(interaction);
+    if (interaction.type === 2 && interaction.data?.name === 'contrat') return await contractCommand(interaction);
+  } catch (e) { console.error('[contrat]', e); return reply('Erreur lors du traitement du contrat, réessayez.'); }
   if (interaction.type !== 2) return reply('Interaction non prise en charge.');
   if (PUBLIC_COMMANDS.some(c => c.name === interaction.data?.name)) return publicReply(interaction.data.name);
 

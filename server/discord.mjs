@@ -175,3 +175,30 @@ export const embeds = {
 
 // Canal à utiliser pour une mise à jour de statut
 export const channelForStatus = s => (s === 'cloture' || s === 'refuse') ? 'closed' : 'active';
+
+// Message avec fichier joint (multipart) : salon ou message privé
+export async function sendFile(channelId, payload, filename, buffer, mime = 'application/pdf') {
+  if (!process.env.DISCORD_BOT_TOKEN) return { ok: false, status: 0, skipped: 'no-token' };
+  const fd = new FormData();
+  fd.append('payload_json', JSON.stringify({ allowed_mentions: { parse: [] }, ...payload, attachments: [{ id: 0, filename }] }));
+  fd.append('files[0]', new Blob([buffer], { type: mime }), filename);
+  const res = await fetch(`${DISCORD_API()}/channels/${channelId}/messages`, { method: 'POST', headers: { authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` }, body: fd });
+  const text = await res.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  return { ok: res.ok, status: res.status, data };
+}
+export async function dmFile(discordId, payload, filename, buffer) {
+  try {
+    if (!/^\d{15,22}$/.test(discordId || '')) return { ok: false, skipped: 'no-discord' };
+    const ch = await discordFetch('/users/@me/channels', { method: 'POST', body: { recipient_id: discordId } });
+    if (!ch.ok) return ch;
+    return await sendFile(ch.data.id, payload, filename, buffer);
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+export async function channelFile(channelKey, payload, filename, buffer) {
+  try {
+    const channel = (await getSettings())[`channel_${channelKey}`];
+    if (!channel) return { ok: false, skipped: 'no-channel' };
+    return await sendFile(channel, payload, filename, buffer);
+  } catch (e) { return { ok: false, error: e.message }; }
+}

@@ -52,6 +52,15 @@ http.createServer(async (req, res) => {
   if (p === '/users/@me/channels' && req.method === 'POST') return send(res, 200, { id: 'dm-' + JSON.parse(body).recipient_id });
   if (/^\/applications\/\d+\/guilds\/\d+\/commands$/.test(p) && req.method === 'PUT') return send(res, 200, JSON.parse(body).map((c, i) => ({ id: String(900 + i), ...c })));
   const m = p.match(/^\/channels\/([\w-]+)\/messages$/);
-  if (m && req.method === 'POST') { messages.push({ channel: m[1], ...JSON.parse(body) }); return send(res, 200, { id: String(messages.length) }); }
+  if (m && req.method === 'POST') {
+    if (String(req.headers['content-type'] || '').startsWith('multipart/form-data')) {
+      // Message avec fichier : payload_json + fichier joint
+      const pj = body.match(/name="payload_json"\r\n(?:Content-Type: [^\r]*\r\n)?\r\n([\s\S]*?)\r\n--/);
+      const fn = body.match(/name="files\[0\]"; filename="([^"]+)"/);
+      const file = { filename: fn?.[1] || null, pdf: body.includes('%PDF-'), size: body.length };
+      messages.push({ channel: m[1], ...JSON.parse(pj ? pj[1] : '{}'), file });
+    } else messages.push({ channel: m[1], ...JSON.parse(body) });
+    return send(res, 200, { id: String(messages.length) });
+  }
   send(res, 404, { message: 'not mocked ' + p });
 }).listen(PORT, () => console.log('mock discord :' + PORT));

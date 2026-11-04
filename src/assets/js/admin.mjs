@@ -6,7 +6,7 @@ import { DOMAINS, STATUSES, WEEKDAYS, ROLES, PRICE_UNITS, fmtPrice, SITE_PHOTOS 
 const app = $('#app');
 const me = await requireRole(2, app);
 
-const TABS = [['tableau', 'Tableau de bord', 'dashboard'], ['dossiers', 'Dossiers', 'folder'], ['rendez-vous', 'Rendez-vous', 'calendar'], ['avocats', 'Avocats', 'scales'], ['prestations', 'Prestations', 'briefcase'],
+const TABS = [['tableau', 'Tableau de bord', 'dashboard'], ['dossiers', 'Dossiers', 'folder'], ['rendez-vous', 'Rendez-vous', 'calendar'], ['avocats', 'Avocats', 'scales'], ['prestations', 'Prestations', 'briefcase'], ['contrats', 'Contrats', 'folder'],
   ['clients', 'Clients', 'users'], ['candidatures', 'Candidatures', 'inbox'], ['messages', 'Messages', 'message'], ['actualites', 'Actualités', 'news'], ['photos', 'Photos du site', 'camera'],
   ...(me?.role >= 3 ? [['parametres', 'Paramètres', 'settings']] : [])];
 
@@ -20,7 +20,7 @@ function render() {
   });
   const titles = Object.fromEntries(TABS.map(([k, l]) => [k, l]));
   const subs = { tableau: "Vue d'ensemble du cabinet", dossiers: 'Recherche, filtres et attribution', 'rendez-vous': 'Agenda de tous les avocats', avocats: 'Fiches, coordonnées, photos et accès', prestations: 'Catalogue et tarifs, par module',
-    clients: 'Comptes citoyens et historique', candidatures: 'Candidatures reçues depuis la page Recrutement', messages: 'Messages du formulaire de contact', actualites: 'Articles publiés sur le site', photos: 'Locaux, bureaux, tribunal : vos propres photos', parametres: 'Salons et rôles Discord' };
+    clients: 'Comptes citoyens et historique', candidatures: 'Candidatures reçues depuis la page Recrutement', messages: 'Messages du formulaire de contact', actualites: 'Articles publiés sur le site', contrats: 'Contrats de travail rédigés et signés sur Discord (/contrat)', photos: 'Locaux, bureaux, tribunal : vos propres photos', parametres: 'Salons et rôles Discord' };
   tabs(app, name => { $('.dash-head h1').textContent = titles[name]; $('.dash-head .sub').textContent = subs[name]; return loaders[name](); });
 }
 
@@ -263,6 +263,20 @@ const loaders = {
     });
   },
 
+  async contrats() {
+    const p = panel('contrats');
+    const { contracts } = await api('/admin/contracts');
+    const pill = c => `<span class="pill s-${{ signature: 'attente', validation: 'attribue', valide: 'cloture', refuse: 'refuse' }[c.status] || 'recue'}">${esc(c.status_label || c.status)}</span>`;
+    p.innerHTML = `<p class="muted" style="margin-top:0">Les entreprises abonnées (case « Accès au service de rédaction » dans leur fiche client) et l’équipe tapent <b>/contrat</b> sur Discord. Le bot envoie le PDF aux deux parties pour signature, puis un avocat le valide depuis le salon des nouvelles demandes.</p>
+      ${contracts.length ? `<div class="table-wrap"><table class="data stack"><thead><tr><th>Référence</th><th>Contrat</th><th>Entreprise</th><th>Salarié</th><th>Signatures</th><th>État</th><th></th></tr></thead><tbody>
+      ${contracts.map(c => `<tr><td data-label="Référence"><b>${esc(c.ref)}</b><br><span class="muted" style="font-size:.82rem">${fmtDate(c.created_at)}</span></td><td data-label="Contrat">${esc(c.type)}</td>
+        <td data-label="Entreprise">${esc(c.company)}<br><span class="muted" style="font-size:.82rem">${esc(c.employer_name)}</span></td><td data-label="Salarié">${esc(c.employee_name)}<br><span class="muted" style="font-size:.82rem">${esc(c.position)}</span></td>
+        <td data-label="Signatures">${['employer', 'employee', 'cabinet'].map(k => `${c.signatures[k] ? '✔' : '○'} ${{ employer: 'Entreprise', employee: 'Salarié', cabinet: 'Cabinet' }[k]}`).join('<br>')}</td>
+        <td data-label="État">${pill(c)}${c.refused_by ? `<br><span class="muted" style="font-size:.82rem">par ${esc(c.refused_by)}</span>` : ''}</td>
+        <td><a class="btn btn-ghost btn-sm" href="/api/admin/contracts/${c.id}/pdf" target="_blank" rel="noopener">PDF</a></td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty"><h3>Aucun contrat</h3><p>Les contrats rédigés avec /contrat sur Discord apparaîtront ici.</p></div>'}`;
+  },
+
   async actualites() {
     const p = panel('actualites');
     p.innerHTML = '<span class="loader">Chargement</span>';
@@ -430,7 +444,8 @@ async function clientModal(id) {
       ${canManage && c.id !== me.id ? `<div style="border-top:1px solid var(--line);margin-top:20px;padding-top:18px" class="form">
         <div class="field"><label for="cl-role">Rôle attribué par le site</label><select class="input" id="cl-role" name="site_role">${ROLES.map((l, i) => `<option value="${i}" ${c.site_role === i ? 'selected' : ''} ${i >= 2 && me.role < 3 ? 'disabled' : ''}>${esc(l)}</option>`).join('')}</select>
           <p class="hint">Le rôle effectif est le plus élevé entre celui-ci et le rôle Discord (actuellement ${esc(roleName(c.discord_role))}).</p></div>
-        <label class="check"><input type="checkbox" name="disabled" ${c.disabled ? 'checked' : ''}> Compte désactivé (connexion bloquée)</label></div>` : ''}`,
+        <label class="check"><input type="checkbox" name="disabled" ${c.disabled ? 'checked' : ''}> Compte désactivé (connexion bloquée)</label></div>` : ''}
+      <label class="check" style="margin-top:16px"><input type="checkbox" name="documents_access" ${c.documents_access ? 'checked' : ''}> Accès au service de rédaction : peut générer des contrats avec /contrat sur Discord</label>`,
     onSubmit: async (d, form) => {
       const newRef = d.referent ? +d.referent : null;
       if (newRef !== (c.referent_lawyer_id ?? null)) {
@@ -440,6 +455,8 @@ async function clientModal(id) {
       if (canManage && c.id !== me.id) {
         await api(`/admin/users/${c.id}`, { method: 'PATCH', body: { site_role: +d.site_role, disabled: !!form.querySelector('[name=disabled]').checked } });
       }
+      const access = !!form.querySelector('[name=documents_access]').checked;
+      if (access !== !!c.documents_access) await api(`/admin/users/${c.id}`, { method: 'PATCH', body: { documents_access: access } });
       return 'saved';
     } });
   if (r === 'saved') { toast('Fiche client enregistrée.'); lawyersCache = null; loadClients(); }

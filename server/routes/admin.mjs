@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import { cleanSpecialties, saveAvailability, getAvailability, cleanIdentity, cleanPhotoUpload, savePhoto, photoUrl } from './lawyer.mjs';
 import { DOMAIN_BY_SLUG, STATUS_BY_KEY, SITE_PHOTOS } from '../../shared/domains.mjs';
 import { newsImage } from './public.mjs';
+import { listContracts, getContract, contractPdf, CONTRACT_TYPES, contractStatus } from '../contracts.mjs';
 import site from '../../site.config.mjs';
 
 // ── Dossiers
@@ -145,7 +146,7 @@ route('PATCH', '/api/admin/lawyers/:id', async ({ req, params, user }) => {
 // ── Clients
 const clientRow = (u, L) => ({ id: u.id, discord_id: u.discord_id, username: u.username, global_name: u.global_name, rp_name: u.rp_name, phone: u.phone,
   disabled: !!u.disabled, created_at: u.created_at, last_login: u.last_login ?? null, site_role: u.site_role || 0, discord_role: u.discord_role || 0,
-  role: Math.max(u.discord_role || 0, u.site_role || 0), referent_lawyer_id: u.referent_lawyer_id ?? null, referent_name: L.get(u.referent_lawyer_id)?.display_name ?? null });
+  role: Math.max(u.discord_role || 0, u.site_role || 0), documents_access: !!u.documents_access, referent_lawyer_id: u.referent_lawyer_id ?? null, referent_name: L.get(u.referent_lawyer_id)?.display_name ?? null });
 
 route('GET', '/api/admin/clients', async ({ query }) => {
   const s = (query.get('q') || '').trim().toLowerCase();
@@ -219,8 +220,21 @@ route('PATCH', '/api/admin/users/:id', async ({ req, params, user }) => {
     checkRoleChange(user, role, target);
     await update('users', id, { site_role: role });
   }
+  if (b.documents_access !== undefined) await update('users', id, { documents_access: !!b.documents_access });
   return json({ ok: true });
 }, { auth: 2 });
+
+// ── Contrats générés depuis Discord
+route('GET', '/api/admin/contracts', async () => json({ contracts: (await listContracts()).slice(0, 300).map(c => ({
+  id: c.id, ref: c.ref, type: c.type, type_label: CONTRACT_TYPES[c.type], company: c.company, employer_name: c.employer_name, position: c.position,
+  employee_name: `${c.employee?.first_name || ''} ${c.employee?.last_name || ''}`.trim(), status: c.status, status_label: contractStatus[c.status],
+  signatures: c.signatures || {}, refused_by: c.refused_by || null, created_at: c.created_at })) }), { auth: 1 });
+
+route('GET', '/api/admin/contracts/:id/pdf', async ({ params }) => {
+  const c = await getContract(int(params.id, 'id'));
+  if (!c) fail(404, 'Contrat introuvable.');
+  return new Response(await contractPdf(c), { headers: { 'content-type': 'application/pdf', 'content-disposition': `inline; filename="${c.ref}.pdf"`, 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } });
+}, { auth: 1 });
 
 // ── Statistiques
 route('GET', '/api/admin/stats', async () => json(await stats()), { auth: 2 });
