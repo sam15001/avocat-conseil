@@ -8,6 +8,7 @@ import crypto from 'node:crypto';
 import { cleanSpecialties, saveAvailability, getAvailability, cleanIdentity, cleanPhotoUpload, savePhoto, photoUrl } from './lawyer.mjs';
 import { DOMAIN_BY_SLUG, STATUS_BY_KEY, SITE_PHOTOS } from '../../shared/domains.mjs';
 import { newsImage } from './public.mjs';
+import { clientKind } from './cases.mjs';
 import { listContracts, getContract, contractPdf, CONTRACT_TYPES, contractStatus } from '../contracts.mjs';
 import site from '../../site.config.mjs';
 
@@ -45,7 +46,7 @@ route('PATCH', '/api/admin/cases/:number', async ({ req, params }) => {
   if (!DOMAIN_BY_SLUG[domain]) fail(400, 'Domaine inconnu.');
   const c = await caseByNumber(params.number);
   if (!c) fail(404, 'Dossier introuvable.');
-  await update('cases', c.id, { title: str(b.title, 'Objet', { max: 140 }), domain, description: str(b.description, 'Description', { max: 6000 }), updated_at: now() });
+  await update('cases', c.id, { title: str(b.title, 'Objet', { max: 140 }), domain, description: str(b.description, 'Description', { max: 6000 }), ...(b.client_kind ? clientKind(b) : {}), updated_at: now() });
   return json({ ok: true });
 }, { auth: 2 });
 
@@ -225,10 +226,10 @@ route('PATCH', '/api/admin/users/:id', async ({ req, params, user }) => {
 }, { auth: 2 });
 
 // ── Contrats générés depuis Discord
-route('GET', '/api/admin/contracts', async () => json({ contracts: (await listContracts()).slice(0, 300).map(c => ({
+route('GET', '/api/admin/contracts', async () => { const nums = new Map((await all('cases')).map(k => [k.id, k.number])); return json({ contracts: (await listContracts()).slice(0, 300).map(c => ({ case_number: nums.get(c.case_id) || null,
   id: c.id, ref: c.ref, type: c.type, type_label: CONTRACT_TYPES[c.type], company: c.company, employer_name: c.employer_name, position: c.position,
   employee_name: `${c.employee?.first_name || ''} ${c.employee?.last_name || ''}`.trim(), status: c.status, status_label: contractStatus[c.status],
-  signatures: c.signatures || {}, refused_by: c.refused_by || null, created_at: c.created_at })) }), { auth: 1 });
+  signatures: c.signatures || {}, refused_by: c.refused_by || null, created_at: c.created_at })) }); }, { auth: 1 });
 
 route('GET', '/api/admin/contracts/:id/pdf', async ({ params }) => {
   const c = await getContract(int(params.id, 'id'));

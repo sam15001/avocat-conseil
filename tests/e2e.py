@@ -565,6 +565,38 @@ with sync_playwright() as p:
     check('Onglet « Contrats » de l’administration', r.locator('[data-panel=contrats] tbody tr').count() == 2)
     r.screenshot(path=f'{SHOTS}/19-admin-contrats.png', full_page=True)
 
+    print('\n[10d] Contrats joints aux dossiers (particulier ou entreprise représentée)')
+    st, _ = api(c, '/cases', 'POST', {'client_kind': 'entreprise', 'domain': 'affaires', 'title': 'Contrats du personnel', 'description': 'Nous recrutons et voulons faire valider tous nos contrats de travail par le cabinet.'})
+    check('Dossier « entreprise » sans nom d’entreprise : refusé', st == 400)
+    st, ec = api(c, '/cases', 'POST', {'client_kind': 'entreprise', 'company': 'LTD - F4L', 'domain': 'affaires', 'title': 'Contrats du personnel', 'description': 'Nous recrutons et voulons faire valider tous nos contrats de travail par le cabinet.'})
+    enum = ec['case']['number']
+    check('Dossier déposé pour une entreprise représentée', st == 201 and api(c, f'/cases/{enum}')[1]['case']['company'] == 'LTD - F4L', ec)
+    other = api(c2, '/cases')[1]['cases'][0]['number']
+    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])})
+    interaction({'type': 5, 'data': {'custom_id': resp['data']['custom_id'], 'components': fields({'formulaire': fill(full, {'Dossier du cabinet': other}), 'clauses': ''})}, 'member': member(CIT, [])})
+    check('/contrat avec le dossier d’un autre client : refusé', 'pas à votre nom' in followup().get('content', ''), followup())
+    mock('/mock/messages', 'DELETE')
+    resp = interaction({'type': 2, 'data': {'name': 'contrat', 'options': copts}, 'member': member(CIT, [])})
+    interaction({'type': 5, 'data': {'custom_id': resp['data']['custom_id'], 'components': fields({'formulaire': full, 'clauses': ''})}, 'member': member(CIT, [])})
+    check('/contrat : joint automatiquement au dossier de l’entreprise (même nom)', f'Joint au dossier **{enum}**' in followup().get('content', ''), followup())
+    k3 = api(r, '/admin/contracts')[1]['contracts'][0]
+    check('Administration : colonne Dossier renseignée', k3['case_number'] == enum, k3)
+    interaction({'type': 3, 'data': {'custom_id': f"csign:{k3['id']}"}, 'user': {'id': CIT2, 'username': 'lucia'}})
+    st, dv = api(c, f'/cases/{enum}')
+    check('Le client voit le contrat dans son dossier, avec la signature du salarié', st == 200 and len(dv['contracts']) == 1 and 'employee' in dv['contracts'][0]['signatures']
+          and any('signé par' in (e['message'] or '') for e in dv['events']), dv.get('contracts'))
+    pdfc = c.request.get(BASE + f"/api/cases/{enum}/contracts/{k3['id']}/pdf")
+    check('PDF du contrat ouvrable par le client du dossier', pdfc.status == 200 and pdfc.body()[:5] == b'%PDF-')
+    check('PDF fermé aux autres citoyens', c2.request.get(BASE + f"/api/cases/{enum}/contracts/{k3['id']}/pdf").status == 404)
+    check('Un citoyen ne peut pas joindre un contrat', api(c, f'/cases/{enum}/contracts', 'POST', {'contract_id': ct['id']})[0] in (403, 404))
+    check('Direction : joindre un contrat existant au dossier', api(r, f'/cases/{enum}/contracts', 'POST', {'contract_id': ct['id']})[0] == 201 and len(api(c, f'/cases/{enum}')[1]['contracts']) == 2)
+    check('Direction : retirer un contrat du dossier', api(r, f"/cases/{enum}/contracts/{ct['id']}", 'DELETE')[0] == 200 and len(api(c, f'/cases/{enum}')[1]['contracts']) == 1)
+    c.goto(BASE + f'/dossier.html?n={enum}'); c.wait_for_selector('#contracts li')
+    check('Page dossier : carte « Contrats de travail » et client « entreprise représentée »', c.locator('#contracts li').count() == 1 and 'Entreprise représentée par' in c.inner_text('.recap'))
+    c.screenshot(path=f'{SHOTS}/20-dossier-contrats.png', full_page=True)
+    r.goto(BASE + f'/dossier.html?n={enum}'); r.wait_for_selector('#attach-contract')
+    check('Équipe : bouton « Joindre un contrat » sur le dossier', r.locator('[data-detach]').count() == 1)
+
     print('\n[11] Mobile')
     m_ctx, m = login(browser, 'citoyen', mobile=True)
     for name, url, sel in [('12-mobile-accueil', '/', '.lawyer-card'), ('13-mobile-espace-client', '/espace-client.html#dossiers', '[data-panel=dossiers] table.data'),

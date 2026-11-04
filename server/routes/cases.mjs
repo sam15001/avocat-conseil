@@ -5,16 +5,24 @@ import { notify, dm, embeds } from '../discord.mjs';
 import { getCase, canManageCase, changeStatus, assignCase, displayName, isClosed } from '../services.mjs';
 import { DOMAIN_BY_SLUG } from '../../shared/domains.mjs';
 import { validateService } from './services.mjs';
+import { contractsOfCase, contractSummary, getContract, contractPdf, attachToCase, detachFromCase } from '../contracts.mjs';
 
 const MAX_FILE = 4 * 1024 * 1024;
 const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'];
+
+// Client représenté : le citoyen lui-même, ou une entreprise qu'il représente
+export function clientKind(b) {
+  const client_kind = b.client_kind === 'entreprise' ? 'entreprise' : 'particulier';
+  const company = client_kind === 'entreprise' ? str(b.company, 'Nom de l’entreprise', { min: 2, max: 120 }) : null;
+  return { client_kind, company };
+}
 
 // ── Citoyen : ses dossiers
 route('GET', '/api/cases', async ({ user }) => {
   const lawyers = new Map((await all('lawyers')).map(l => [l.user_id, l]));
   const cases = (await all('cases')).filter(c => c.client_id === user.id)
     .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
-    .map(c => ({ number: c.number, domain: c.domain, service: c.service, title: c.title, status: c.status, created_at: c.created_at, updated_at: c.updated_at,
+    .map(c => ({ number: c.number, client_kind: c.client_kind || 'particulier', company: c.company || null, domain: c.domain, service: c.service, title: c.title, status: c.status, created_at: c.created_at, updated_at: c.updated_at,
                  lawyer_name: lawyers.get(c.lawyer_id)?.display_name ?? null }));
   return json({ cases });
 }, { auth: 'user' });
@@ -27,6 +35,7 @@ route('POST', '/api/cases', async ({ req, user }) => {
   await validateService(domain, service);
   const title = str(b.title, 'Objet', { min: 5, max: 140 });
   const description = str(b.description, 'Description', { min: 30, max: 6000 });
+  const { client_kind, company } = clientKind(b);
 
   const open = (await all('cases')).filter(c => c.client_id === user.id && !isClosed(c.status)).length;
   if (open >= 10) fail(429, 'Vous avez déjà 10 dossiers ouverts. Attendez la clôture de l’un d’eux.');
@@ -38,7 +47,7 @@ route('POST', '/api/cases', async ({ req, user }) => {
   const seq = await nextId('case_number');
   const t = now();
   const c = await insert('cases', {
-    number: `AC-${t.slice(0, 4)}-${String(seq).padStart(4, '0')}`, client_id: user.id, domain, service, title, description,
+    number: `AC-${t.slice(0, 4)}-${String(seq).padStart(4, '0')}`, client_id: user.id, client_kind, company, domain, service, title, description,
     status: referent ? 'attribue' : 'recue', lawyer_id: referent?.user_id ?? null, lawyer_accepted: referent ? true : null, updated_at: t
   });
   await addEvent(c.id, { actor_id: user.id, type: 'created', to_status: 'recue', message: 'Demande déposée depuis l’espace client' });
@@ -62,16 +71,17 @@ route('GET', '/api/cases/:number', async ({ params, user }) => {
     .map(d => ({ id: d.id, filename: d.filename, mime: d.mime, size: d.size, internal: !!d.internal, created_at: d.created_at, uploader: who(d.uploader_id) }));
   const appointments = (await all('appointments')).filter(a => a.case_id === c.id).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
     .map(a => ({ id: a.id, date: a.date, time: a.time, reason: a.reason, service: a.service, status: a.status, lawyer_name: L.get(a.lawyer_id)?.display_name ?? null }));
+  const contracts = (await contractsOfCase(c.id)).map(contractSummary);
   const notes = staff ? (await children('notes', c.id)).reverse().map(n => ({ id: n.id, body: n.body, created_at: n.created_at, author: who(n.author_id) })) : undefined;
   const out = {
     number: c.number, domain: c.domain, service: c.service, title: c.title, description: c.description, status: c.status,
     lawyer_id: c.lawyer_id, lawyer_name: c.lawyer_name, lawyer_accepted: c.lawyer_accepted,
     created_at: c.created_at, updated_at: c.updated_at, closed_at: c.closed_at,
-    client_name: c.client_name, is_owner: c.client_id === user.id, can_manage: staff
+    client_name: c.client_name, client_kind: c.client_kind || 'particulier', company: c.company || null, is_owner: c.client_id === user.id, can_manage: staff
   };
   if (staff) Object.assign(out, { archived: c.archived, client_id: c.client_id, client_discord_id: c.client_discord_id, notes,
     client_referent_id: c.client_referent_id, client_referent_name: c.client_referent_name });
-  return json({ case: out, events, documents, appointments });
+  return json({ case: out, events, documents, appointments, contracts });
 }, { auth: 'user' });
 
 // ── Documents (citoyen propriétaire ou équipe)
@@ -168,3 +178,36 @@ route('POST', '/api/cases/:number/assign', async ({ req, params, user }) => {
   const updated = await assignCase(c, int(b.lawyer_id, 'Avocat'), user);
   return json({ case: { number: updated.number, status: updated.status, lawyer_name: updated.lawyer_name } });
 }, { auth: 2 });
+
+// ── Contrats de travail joints au dossier (générés avec /contrat sur Discord)
+async function caseContract(params, user, { manage = false } = {}) {
+  const c = await getCase(params.number);
+  const staff = c && canManageCase(user, c);
+  if (!c || (manage ? !staff : (c.client_id !== user.id && !staff))) fail(404, 'Dossier introuvable.');
+  return { c, staff };
+}
+route('GET', '/api/cases/:number/contracts/:id/pdf', async ({ params, user }) => {
+  const { c } = await caseContract(params, user);
+  const k = await getContract(int(params.id, 'id'));
+  if (!k || k.case_id !== c.id) fail(404, 'Contrat introuvable.');
+  return new Response(await contractPdf(k), { headers: { 'content-type': 'application/pdf', 'content-disposition': `inline; filename="${k.ref}.pdf"`, 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } });
+}, { auth: 'user' });
+
+route('POST', '/api/cases/:number/contracts', async ({ req, params, user }) => {
+  const { c } = await caseContract(params, user, { manage: true });
+  const b = await readJson(req, 2000);
+  const k = await getContract(int(b.contract_id, 'Contrat'));
+  if (!k) fail(404, 'Contrat introuvable.');
+  if (k.case_id === c.id) fail(400, 'Ce contrat est déjà joint à ce dossier.');
+  if (k.case_id) { const prev = await get('cases', k.case_id); if (prev) await detachFromCase(k, prev, user.id); }
+  await attachToCase(k, c, user.id);
+  return json({ ok: true }, 201);
+}, { auth: 1 });
+
+route('DELETE', '/api/cases/:number/contracts/:id', async ({ params, user }) => {
+  const { c } = await caseContract(params, user, { manage: true });
+  const k = await getContract(int(params.id, 'id'));
+  if (!k || k.case_id !== c.id) fail(404, 'Contrat introuvable.');
+  await detachFromCase(k, c, user.id);
+  return json({ ok: true });
+}, { auth: 1 });

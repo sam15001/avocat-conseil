@@ -33,7 +33,17 @@ const eventText = e => {
   return esc(e.message || e.type);
 };
 
-function render({ case: c, events, documents, appointments }) {
+const C_PILL = { signature: 'attente', validation: 'attribue', valide: 'cloture', refuse: 'refuse' };
+const SIGN = { employer: 'Entreprise', employee: 'Salarié', cabinet: 'Cabinet' };
+function contractsCard(c, contracts, staff) {
+  if (!contracts.length && !staff) return '';
+  return `<div class="card" id="contracts"><div class="card-head"><h2>Contrats de travail</h2>${staff ? '<button class="btn btn-ghost btn-sm" id="attach-contract">Joindre un contrat</button>' : `<span class="muted">${contracts.length} contrat${contracts.length > 1 ? 's' : ''}</span>`}</div>
+    ${contracts.length ? `<ul class="list-plain">${contracts.map(k => `<li style="flex-direction:column;align-items:flex-start;gap:8px"><a class="doc-link" href="/api/cases/${encodeURIComponent(c.number)}/contracts/${k.id}/pdf" target="_blank" rel="noopener">${ICON_DOC}<span><b>${esc(k.ref)}</b> · ${esc(k.type)} — ${esc(k.employee_name)}, ${esc(k.position)}</span></a>
+      <span class="muted" style="font-size:.82rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="pill s-${C_PILL[k.status] || 'recue'}">${esc(k.status_label)}</span> ${Object.keys(SIGN).map(s => `${k.signatures[s] ? '✔' : '○'} ${SIGN[s]}`).join(' · ')}${staff ? ` <button class="btn btn-quiet btn-sm" data-detach="${k.id}">Retirer</button>` : ''}</span></li>`).join('')}</ul>`
+      : `<p class="muted">Aucun contrat. Le client peut indiquer <b>${esc(c.number)}</b> à la ligne « Dossier du cabinet » de /contrat sur Discord${c.client_kind === 'entreprise' ? ', ou utiliser le nom d’entreprise du dossier' : ''}.</p>`}</div>`;
+}
+
+function render({ case: c, events, documents, appointments, contracts = [] }) {
   document.title = `${c.number} — Dominion Law Firm - Avocat & Conseil`;
   const closed = ['cloture', 'refuse'].includes(c.status);
   const staff = c.can_manage;
@@ -62,6 +72,7 @@ function render({ case: c, events, documents, appointments }) {
             ${staff ? '<label class="check" style="margin-top:12px"><input type="checkbox" id="up-internal"> Document interne (invisible pour le client)</label>' : ''}
             <button class="btn btn-sm" id="up-send" style="margin-top:14px">Ajouter les documents</button></div>` : ''}
         </div>
+        ${contractsCard(c, contracts, staff)}
         <div class="card"><h2>Historique</h2>
           <ol class="timeline">${events.map(e => `<li><div class="when">${fmtDateTime(e.created_at)} · ${esc(e.actor || 'Cabinet')}${e.internal ? '<span class="internal">interne</span>' : ''}</div><div class="what">${eventText(e)}</div></li>`).join('')}</ol>
         </div>
@@ -69,10 +80,11 @@ function render({ case: c, events, documents, appointments }) {
       <div>
         <div class="card"><h3>Informations</h3>
           <dl class="recap" style="border:0;margin:0">
+            <div><dt>Client</dt><dd>${c.client_kind === 'entreprise' ? `${esc(c.company)}<br><span class="muted" style="font-size:.82rem">Entreprise représentée par ${esc(c.client_name)}</span>` : esc(c.client_name)}</dd></div>
             <div><dt>Domaine</dt><dd>${esc(domainName(c.domain))}</dd></div>
             ${c.service ? `<div><dt>Prestation</dt><dd>${esc(c.service)}</dd></div>` : ''}
             <div><dt>Avocat</dt><dd>${esc(c.lawyer_name || 'En cours d’attribution')}${c.lawyer_name && c.lawyer_accepted === null ? ' <span class="muted">(en attente de réponse)</span>' : ''}</dd></div>
-            ${staff ? `<div><dt>Client</dt><dd>${esc(c.client_name)}<br><span class="muted" style="font-size:.82rem">Discord ${esc(c.client_discord_id)}</span></dd></div>
+            ${staff ? `<div><dt>Discord du client</dt><dd><span class="muted" style="font-size:.82rem">${esc(c.client_discord_id)}</span></dd></div>
             <div><dt>Avocat référent</dt><dd>${esc(c.client_referent_name || 'Aucun')}</dd></div>` : ''}
             <div><dt>Déposé le</dt><dd>${fmtDate(c.created_at)}</dd></div>
             <div><dt>Mis à jour</dt><dd>${fmtDateTime(c.updated_at)}</dd></div>
@@ -167,6 +179,8 @@ function bind(c) {
   $('#edit')?.addEventListener('click', async () => {
     const r = await modal({ title: 'Modifier le dossier', confirm: 'Enregistrer',
       body: `<div class="form" style="gap:16px"><div class="field"><label for="e-t">Objet</label><input class="input" id="e-t" name="title" value="${esc(c.title)}" maxlength="140" required></div>
+        <div class="field"><label for="e-k">Client</label><select class="input" id="e-k" name="client_kind"><option value="particulier" ${c.client_kind !== 'entreprise' ? 'selected' : ''}>Particulier (${esc(c.client_name)})</option><option value="entreprise" ${c.client_kind === 'entreprise' ? 'selected' : ''}>Entreprise représentée par ${esc(c.client_name)}</option></select></div>
+        <div class="field"><label for="e-c">Nom de l'entreprise</label><input class="input" id="e-c" name="company" value="${esc(c.company || '')}" maxlength="120" placeholder="Seulement pour une entreprise"></div>
         <div class="field"><label for="e-d">Domaine</label><select class="input" id="e-d" name="domain">${DOMAINS.map(d => `<option value="${d.slug}" ${d.slug === c.domain ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></div>
         <div class="field"><label for="e-x">Description</label><textarea class="input" id="e-x" name="description" maxlength="6000">${esc(c.description)}</textarea></div></div>`,
       onSubmit: d => api(`/admin/cases/${c.number}`, { method: 'PATCH', body: d }) });
@@ -180,6 +194,21 @@ function bind(c) {
   });
 
   $('#schedule')?.addEventListener('click', () => scheduleModal(c, reload));
+
+  $('#attach-contract')?.addEventListener('click', async () => {
+    let list = [];
+    try { list = (await api('/admin/contracts')).contracts.filter(k => k.case_number !== c.number); } catch (err) { return toast(err.message, 'error'); }
+    if (!list.length) return toast('Aucun autre contrat à joindre. Les contrats se rédigent avec /contrat sur Discord.', 'error');
+    const r = await modal({ title: `Joindre un contrat à ${c.number}`, confirm: 'Joindre',
+      body: `<div class="field"><label for="k-id">Contrat</label><select class="input" id="k-id" name="contract_id">${list.map(k => `<option value="${k.id}">${esc(k.ref)} · ${esc(k.company)} — ${esc(k.employee_name)} (${esc(k.type)})${k.case_number ? ` · actuellement dans ${esc(k.case_number)}` : ''}</option>`).join('')}</select></div>
+        <p class="muted" style="font-size:.88rem">Le client du dossier pourra consulter le PDF. Un contrat déjà joint à un autre dossier y est retiré.</p>`,
+      onSubmit: d => api(`/cases/${c.number}/contracts`, { method: 'POST', body: { contract_id: Number(d.contract_id) } }) });
+    if (r) { toast('Contrat joint au dossier.'); reload(); }
+  });
+  $$('[data-detach]').forEach(b => b.addEventListener('click', async () => {
+    if (!await confirmModal('Retirer ce contrat du dossier ?', 'Le contrat reste valable et visible dans l’onglet Contrats de l’administration.', { confirm: 'Retirer' })) return;
+    try { await api(`/cases/${c.number}/contracts/${b.dataset.detach}`, { method: 'DELETE' }); toast('Contrat retiré.'); reload(); } catch (err) { toast(err.message, 'error'); }
+  }));
 }
 
 // Programmation d'un rendez-vous par l'avocat (sur ses propres créneaux, ou ceux de l'avocat du dossier pour un responsable)

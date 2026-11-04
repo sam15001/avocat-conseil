@@ -1,7 +1,7 @@
 // Contrats de travail générés depuis Discord (/contrat) : PDF, signatures employeur et salarié, validation du cabinet.
 // Le contenu ne cite que des textes publiés de FratWorld (décret 2026-011 sur la tenue de travail, CGI 220-4 sur les salaires).
 import site from '../site.config.mjs';
-import { all, get, insert, update, now, nextId } from './store.mjs';
+import { all, get, insert, update, now, nextId, addEvent } from './store.mjs';
 
 export const CONTRACT_TYPES = {
   CDI: 'Contrat à Durée Indéterminée (CDI)',
@@ -199,4 +199,44 @@ export async function signContract(c, party, who) {
 export async function refuseContract(c, who) {
   await update('contracts', c.id, { status: 'refuse', refused_by: who.name, updated_at: now() });
   return { ...c, status: 'refuse', refused_by: who.name };
+}
+
+// ── Rattachement à un dossier du cabinet (client particulier, ou entreprise représentée par un citoyen)
+const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const CLOSED = ['cloture', 'refuse'];
+export const contractSummary = c => ({ id: c.id, ref: c.ref, type: c.type, type_label: CONTRACT_TYPES[c.type], company: c.company, position: c.position,
+  employee_name: `${c.employee?.first_name || ''} ${c.employee?.last_name || ''}`.trim(), status: c.status, status_label: contractStatus[c.status],
+  signatures: Object.fromEntries(Object.entries(c.signatures || {}).map(([k, v]) => [k, { name: v.name, at: v.at }])), created_at: c.created_at });
+export const contractsOfCase = async caseId => (await listContracts()).filter(c => c.case_id === caseId);
+
+// Dossier indiqué dans /contrat (numéro), ou à défaut le seul dossier ouvert « entreprise » du demandeur portant ce nom d'entreprise
+export async function findCaseForContract({ number, company, siteUserId, staff }) {
+  const cases = await all('cases');
+  if (number) {
+    const k = cases.find(c => c.number === String(number).trim().toUpperCase());
+    if (!k) return { err: `Dossier : aucun dossier ${String(number).trim().toUpperCase()}` };
+    if (!staff && k.client_id !== siteUserId) return { err: 'Dossier : ce dossier n’est pas à votre nom sur le site' };
+    if (CLOSED.includes(k.status)) return { err: `Dossier : ${k.number} est clôturé` };
+    return { kase: k };
+  }
+  if (!siteUserId) return {};
+  const mine = cases.filter(c => c.client_id === siteUserId && c.client_kind === 'entreprise' && !CLOSED.includes(c.status) && norm(c.company) === norm(company));
+  return mine.length === 1 ? { kase: mine[0] } : {};
+}
+
+export async function attachToCase(contract, kase, actorId = null) {
+  await update('contracts', contract.id, { case_id: kase.id, updated_at: now() });
+  await addEvent(kase.id, { actor_id: actorId, type: 'contract', message: `Contrat joint au dossier : ${contract.ref} (${contract.type} — ${contract.employee.first_name} ${contract.employee.last_name}, ${contract.position})` });
+  await update('cases', kase.id, { updated_at: now() });
+  return { ...contract, case_id: kase.id };
+}
+export async function detachFromCase(contract, kase, actorId) {
+  await update('contracts', contract.id, { case_id: null, updated_at: now() });
+  await addEvent(kase.id, { actor_id: actorId, type: 'contract', message: `Contrat retiré du dossier : ${contract.ref}`, internal: true });
+}
+// Trace dans le dossier quand le contrat change d'état (signé, validé, refusé)
+export async function caseNote(contract, message) {
+  if (!contract.case_id) return;
+  await addEvent(contract.case_id, { type: 'contract', message: `${contract.ref} : ${message}` });
+  await update('cases', contract.case_id, { updated_at: now() });
 }

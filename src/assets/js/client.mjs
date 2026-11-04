@@ -36,7 +36,7 @@ function render() {
 const panel = n => $(`[data-panel="${n}"]`);
 const caseRow = c => `<tr class="clickable" data-href="/dossier.html?n=${encodeURIComponent(c.number)}">
   <td data-label="Dossier"><a class="num" href="/dossier.html?n=${encodeURIComponent(c.number)}">${esc(c.number)}</a></td>
-  <td data-label="Objet">${esc(c.title)}</td>
+  <td data-label="Objet">${esc(c.title)}${c.client_kind === 'entreprise' ? `<br><span class="muted" style="font-size:.82rem">${esc(c.company)}</span>` : ''}</td>
   <td data-label="Domaine">${esc(domainName(c.domain))}</td>
   <td data-label="Avocat">${esc(c.lawyer_name || '—')}</td>
   <td data-label="Statut">${statusPill(c.status)}</td>
@@ -98,6 +98,9 @@ const loaders = {
     p.innerHTML = `<div class="grid-main">
       <form class="card form" id="new-case" novalidate>
         <h2 style="margin:0">Déposer une demande juridique</h2>
+        <div class="field"><span class="label">Vous consultez pour</span>
+          <div class="chips"><label class="chip"><input type="radio" name="client_kind" value="particulier" checked><span>Vous-même</span></label><label class="chip"><input type="radio" name="client_kind" value="entreprise"><span>Une entreprise que vous représentez</span></label></div></div>
+        <div class="field" id="n-company-f" hidden><label for="n-company">Nom de l'entreprise</label><input class="input" id="n-company" name="company" minlength="2" maxlength="120" placeholder="Ex. : Bean Machine"><p class="hint">Les contrats de travail rédigés pour cette entreprise avec /contrat sur Discord seront joints à ce dossier.</p></div>
         <div class="field"><span class="label">Domaine concerné</span>
           <div class="chips">${DOMAINS.map(d => `<label class="chip"><input type="radio" name="domain" value="${d.slug}" ${pre === d.slug ? 'checked' : ''} required><span>${esc(d.name)}</span></label>`).join('')}</div></div>
         <div class="field"><label for="n-service">Prestation</label><select class="input" id="n-service" name="service" disabled><option value="">Choisissez d'abord un domaine</option></select></div>
@@ -125,6 +128,7 @@ const loaders = {
       svc.innerHTML = d ? `<option value="">Choisir une prestation (facultatif)</option>${groupServices(catalog, d.slug).map(g => `<optgroup label="${esc(g.group)}">${g.items.map(x => `<option value="${esc(x.name)}">${esc(x.name)} — ${esc(fmtPrice(x.price, x.price_unit))}</option>`).join('')}</optgroup>`).join('')}<option>${OTHER_SERVICE}</option>` : '<option value="">Choisissez d\'abord un domaine</option>';
     };
     $$('input[name=domain]').forEach(r => r.onchange = () => fillServices(r.value));
+    $$('input[name=client_kind]').forEach(r => r.onchange = () => { const on = $('input[name=client_kind]:checked').value === 'entreprise'; $('#n-company-f').hidden = !on; $('#n-company').required = on; });
     if (pre && DOMAIN_BY_SLUG[pre]) fillServices(pre);
     const dz = dropzone($('#n-files'));
     const form = $('#new-case'), desc = $('#n-desc');
@@ -134,7 +138,7 @@ const loaders = {
       $$('[aria-invalid]', form).forEach(el => el.removeAttribute('aria-invalid'));
       const data = Object.fromEntries(new FormData(form));
       if (!data.domain) return toast('Choisissez le domaine concerné.', 'error');
-      const bad = [$('#n-title'), desc].filter(el => !el.checkValidity());
+      const bad = [$('#n-company'), $('#n-title'), desc].filter(el => !el.checkValidity());
       if (bad.length) { bad.forEach(el => el.setAttribute('aria-invalid', 'true')); bad[0].focus(); return toast(desc.value.length < 30 ? 'Décrivez votre situation en 30 caractères minimum.' : 'Complétez les champs obligatoires.', 'error'); }
       await withLoading($('button[type=submit]', form), async () => {
         try {

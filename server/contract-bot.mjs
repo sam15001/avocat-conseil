@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import { all, rtdb, now } from './store.mjs';
 import { getSettings, roleFromDiscordRoles } from './config.mjs';
-import { CONTRACT_TYPES, contractStatus, contractPdf, createContract, getContract, signContract, refuseContract, parseBirth, dateFr } from './contracts.mjs';
+import { CONTRACT_TYPES, contractStatus, contractPdf, createContract, getContract, signContract, refuseContract, parseBirth, dateFr, findCaseForContract, attachToCase, caseNote } from './contracts.mjs';
 import { dmFile, channelFile, linkButtons, discordFetch, editOriginal } from './discord.mjs';
 
 const GOLD = 0xB08D57;
@@ -29,7 +29,8 @@ export const TEMPLATE = [
   ['start_date', 'Date de début (JJ/MM/AAAA)', ''],
   ['duration', 'Durée (CDD ou CTT, ex. 3 mois)', ''],
   ['trial_days', 'Période d’essai (jours)', '30'],
-  ['hours', 'Heures par semaine', '40']
+  ['hours', 'Heures par semaine', '40'],
+  ['case', 'Dossier du cabinet (facultatif, ex. AC-2026-0001)', '']
 ];
 const templateText = (vals = {}) => TEMPLATE.map(([k, label, def]) => `${label} : ${vals[k] ?? def}`).join('\n');
 const keyNorm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[’']/g, ' ').replace(/\s+/g, ' ').trim();
@@ -57,7 +58,7 @@ export function parseContractText(text) {
     type, company: v.company, company_address: v.company_address || null, employer_title: v.employer_title || 'Employeur', position: v.position,
     salary, salary_period: /sem/i.test(v.salary_period || '') ? 'semaine' : 'mois',
     missions: String(v.missions || '').split(';').map(x => x.trim()).filter(Boolean).slice(0, 12), workplace: v.workplace || null,
-    start_date: start, duration: v.duration || null, trial_days: num(v.trial_days, 30, 0, 365), hours: num(v.hours, 40, 1, 80),
+    case_number: v.case || null, start_date: start, duration: v.duration || null, trial_days: num(v.trial_days, 30, 0, 365), hours: num(v.hours, 40, 1, 80),
     employee: { last_name: v.last_name, first_name: v.first_name, birth_date: birth, birth_place: v.birth_place }
   } };
 }
@@ -109,15 +110,19 @@ async function submitContract(interaction) {
   if (!who.ok) return refusal();
   const text = field(interaction, 'formulaire'), clauses = field(interaction, 'clauses');
   const { err, data } = parseContractText(text);
+  const found = err.length ? {} : await findCaseForContract({ number: data.case_number, company: data.company, siteUserId: who.site?.id ?? null, staff: (who.role ?? 0) >= 1 });
+  if (found.err) err.push(found.err);
   if (err.length) {
     const nonce = crypto.randomBytes(9).toString('base64url');
     await rtdb.put(`drafts/contracts/${nonce}`, { employee, employer: userOf(interaction).id, text, clauses, created_at: now() });
     return eph(`Il manque des informations :\n${err.map(e => `• ${e}`).join('\n')}`,
       { components: [{ type: 1, components: [{ type: 2, style: 1, label: 'Corriger le formulaire', custom_id: `cedit:${nonce}` }] }] });
   }
-  const c = await createContract({ ...data, clauses: clauses || null, employee_discord_id: employee, employer_discord_id: userOf(interaction).id,
+  const { case_number, ...fields } = data;
+  let c = await createContract({ ...fields, clauses: clauses || null, employee_discord_id: employee, employer_discord_id: userOf(interaction).id,
     employer_name: who.site?.rp_name || nameOf(userOf(interaction), interaction.member), requested_by_user_id: who.site?.id ?? null });
-  return sendForSignature(c);
+  if (found.kase) c = await attachToCase(c, found.kase, who.site?.id ?? null);
+  return sendForSignature(c, found.kase);
 }
 
 // Rouvre le formulaire avec le texte déjà saisi
@@ -127,7 +132,7 @@ export async function contractEdit(interaction) {
   return contractModalFor(d.employee, d.text, d.clauses);
 }
 
-async function sendForSignature(c) {
+async function sendForSignature(c, kase = null) {
   const pdf = await contractPdf(c);
   const emp = `${c.employee.first_name} ${c.employee.last_name}`;
   const msg = forWho => ({ embeds: [{ color: GOLD, title: `${CONTRACT_TYPES[c.type]} — ${c.ref}`,
@@ -139,7 +144,7 @@ async function sendForSignature(c) {
   ]);
   await channelFile('requests', { embeds: [{ color: GOLD, title: `Contrat généré — ${c.ref}`, description: `${CONTRACT_TYPES[c.type]}\n**Entreprise :** ${c.company} (${c.employer_name}, <@${c.employer_discord_id}>)\n**Salarié :** ${emp} (<@${c.employee_discord_id}>)\nEn attente des signatures.` }] }, filename(c), pdf);
   const fails = [!r1.ok && 'vous', !r2.ok && `<@${c.employee_discord_id}>`].filter(Boolean);
-  return eph(`Contrat **${c.ref}** généré et envoyé en message privé aux deux parties pour signature.${fails.length ? `\n⚠️ Message privé impossible pour ${fails.join(' et ')} : ouvrez vos messages privés (Paramètres de confidentialité du serveur), puis demandez au cabinet de renvoyer le contrat.` : ''}`);
+  return eph(`Contrat **${c.ref}** généré et envoyé en message privé aux deux parties pour signature.${kase ? `\n📁 Joint au dossier **${kase.number}** sur le site.` : ''}${fails.length ? `\n⚠️ Message privé impossible pour ${fails.join(' et ')} : ouvrez vos messages privés (Paramètres de confidentialité du serveur), puis demandez au cabinet de renvoyer le contrat.` : ''}`);
 }
 
 export async function contractButton(interaction) {
@@ -157,6 +162,7 @@ export async function contractButton(interaction) {
     const lawyer = (await all('lawyers')).find(l => l.user_id === who.site?.id);
     const name = `Maître ${(lawyer?.display_name || who.site?.rp_name || nameOf(u, interaction.member)).replace(/^(Me|Maître)\s+/i, '')}`;
     const v = await signContract(c, 'cabinet', { name, discord_id: u.id });
+    await caseNote(v, `validé par ${name}, version définitive disponible`);
     return { defer: { type: 6 }, after: async () => editOriginal(interaction, (await finalize(v, name)).data) };
   }
   return partyButton(interaction, action, c, u, done);
@@ -184,6 +190,7 @@ async function partyButton(interaction, action, c, u, done) {
 
   if (action === 'crefuse') {
     await refuseContract(c, { name: myName });
+    await caseNote(c, `refusé par ${myName}`);
     const other = party === 'employer' ? c.employee_discord_id : c.employer_discord_id;
     const ch = await discordFetch('/users/@me/channels', { method: 'POST', body: { recipient_id: other } });
     if (ch.ok) await discordFetch(`/channels/${ch.data.id}/messages`, { method: 'POST', body: { content: `❌ Le contrat **${c.ref}** (${c.company}) a été refusé par ${myName}. Il n’est pas valable.`, allowed_mentions: { parse: [] } } });
@@ -191,6 +198,7 @@ async function partyButton(interaction, action, c, u, done) {
   }
 
   const s = await signContract(c, party, { name: myName, discord_id: u.id });
+  await caseNote(s, `signé par ${myName} (${party === 'employer' ? 'entreprise' : 'salarié'})`);
   if (s.status === 'validation') return { defer: { type: 6 }, after: async () => editOriginal(interaction, (await toCabinet(s)).data) };
   return done(`✍️ Signé le ${dateFr(now())}. Le contrat attend encore la signature de ${party === 'employer' ? 'votre salarié' : 'l’entreprise'}.`);
 }
