@@ -2,6 +2,7 @@
 const svg = (d, w = 1.5) => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
 export const ICONS = {
+  search: svg('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/>'),
   scales: svg('<path d="M12 3v17M7 20h10M5 7h14M12 5.5V7"/><path d="M5 7 2.5 13h5zM19 7l-2.5 6h5z"/><path d="M2.5 13a2.5 2.5 0 0 0 5 0M16.5 13a2.5 2.5 0 0 0 5 0"/>'),
   briefcase: svg('<rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M9 7V5h6v2M3 12.5h18M11 12h2v2h-2z"/>'),
   people: svg('<circle cx="12" cy="8" r="3"/><circle cx="5.5" cy="10" r="2.2"/><circle cx="18.5" cy="10" r="2.2"/><path d="M6.5 20v-1.5a5.5 5.5 0 0 1 11 0V20M1.5 19v-1a4 4 0 0 1 4.3-4M22.5 19v-1a4 4 0 0 0-4.3-4"/>'),

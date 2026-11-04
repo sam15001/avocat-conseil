@@ -7,7 +7,7 @@ const R = { avocat: '400000000000000001', responsable: '400000000000000002', dir
 const USERS = {
   direction:   { id: '500000000000000001', username: 'directrice', global_name: 'Eleanor Vance', roles: [R.direction] },
   citoyen:     { id: '500000000000000002', username: 'tony_m', global_name: 'Tony Moretti', roles: [] },
-  citoyen2:    { id: '500000000000000003', username: 'lucia', global_name: 'Lucia Reyes', roles: [] },
+  citoyen2:    { id: '500000000000000003', username: 'lucia', global_name: 'Lucia Reyes', nick: 'Lucia Castellano', roles: [] },
   avocat1:     { id: '500000000000000004', username: 'harvey', global_name: 'Harvey Collins', roles: [R.avocat] },
   avocat2:     { id: '500000000000000005', username: 'nadia', global_name: 'Nadia Okafor', roles: [R.avocat] },
   responsable: { id: '500000000000000006', username: 'marcus', global_name: 'Marcus Hale', roles: [R.responsable] },
@@ -45,7 +45,7 @@ http.createServer(async (req, res) => {
   if (/^\/users\/@me\/guilds\/\d+\/member$/.test(p)) {
     const u = userFromAuth(req); if (!u) return send(res, 401, {});
     if (!u.roles) return send(res, 404, { message: 'Unknown Guild' });
-    return send(res, 200, { roles: u.roles, user: { id: u.id } });
+    return send(res, 200, { roles: u.roles, nick: u.nick ?? null, user: { id: u.id } });
   }
   if (req.headers.authorization !== 'Bot test-bot-token') return send(res, 401, { message: '401: Unauthorized' });
   if (p === '/users/@me/channels' && req.method === 'POST') return send(res, 200, { id: 'dm-' + JSON.parse(body).recipient_id });

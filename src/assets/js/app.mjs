@@ -277,3 +277,18 @@ export function groupServices(list, domain) {
   }
   return groups;
 }
+
+// ── Mode clair / sombre (choix mémorisé ; par défaut, celui de l'appareil)
+function syncThemeBtn() {
+  const light = document.documentElement.dataset.theme === 'light';
+  for (const b of document.querySelectorAll('.theme-btn')) { b.setAttribute('aria-label', light ? 'Passer en mode sombre' : 'Passer en mode clair'); b.setAttribute('aria-pressed', String(light)); }
+  const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = light ? '#FFFFFF' : '#09090A';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.theme-btn')) return;
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('ac_theme', next); } catch { /* navigation privée */ }
+  syncThemeBtn();
+});
+syncThemeBtn();

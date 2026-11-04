@@ -12,6 +12,7 @@ fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 fs.cpSync(path.join(SRC, 'assets'), path.join(OUT, 'assets'), { recursive: true });
 fs.copyFileSync('shared/domains.mjs', path.join(OUT, 'assets/js/domains.mjs'));
+fs.copyFileSync('shared/legal.mjs', path.join(OUT, 'assets/js/legal.mjs'));
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -19,6 +20,17 @@ export const MARK = crest('crest');
 const WORDMARK = `<span class="wordmark"><span class="wm-name">Avocat &amp; Conseil</span><span class="wm-sub">Cabinet juridique · Los Santos</span></span>`;
 const ARROW = `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 7h12M8 2l5 5-5 5"/></svg>`;
 const DISCORD = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.3 4.4A19.6 19.6 0 0 0 15.4 3l-.6 1.3a18.2 18.2 0 0 0-5.6 0L8.6 3a19.5 19.5 0 0 0-4.9 1.5C.6 9.1-.3 13.6.1 18.1a19.8 19.8 0 0 0 6 3l1.3-2a12.8 12.8 0 0 1-2-1l.5-.4a14.1 14.1 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2a19.7 19.7 0 0 0 6-3c.5-5.2-.8-9.7-3.6-13.7ZM8 15.4c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.6 8 10.6s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Z"/></svg>`;
+
+const QUICK = [
+  ['/rendez-vous.html', 'Prendre rendez-vous', 'Choisissez un avocat et un créneau libre, confirmation immédiate.'],
+  ['/espace-client.html?nouvelle=1', 'Déposer une demande', 'Exposez votre situation, joignez vos preuves, recevez un numéro de dossier.'],
+  ['/espace-client.html', 'Suivre mon dossier', 'Statut, rendez-vous, documents et messages de votre avocat.'],
+  ['/honoraires.html', 'Honoraires', 'Les tarifs de chaque prestation, par domaine.'],
+  ['/equipe.html', 'Nos avocats', 'Spécialités, coordonnées et disponibilités.'],
+  ['/recherche.html', 'Rechercher', 'Une prestation, un avocat, un article de loi (CPP 226-4, CGI 530-1…).'],
+  ['https://legifrat.fr/', 'Législation de FratWorld', 'Bill of Rights, codes et décrets sur LégiFrat.', true],
+  ['/faq.html', 'Questions fréquentes', 'Garde à vue, caution, délais de recours.']
+];
 
 const NAV = [
   ['accueil', '/', 'Accueil'],
@@ -36,6 +48,7 @@ const navItem = ([k, h, l], active) => k === 'expertises'
 
 const header = active => `
 <a class="skip" href="#main">Aller au contenu</a>
+${site.notice ? `<div class="notice-band"><div class="wrap"><span>${esc(site.notice)}</span><a href="https://legifrat.fr/" target="_blank" rel="noopener">Consulter la législation de FratWorld ↗</a></div></div>` : ''}
 <header class="site-header">
   <div class="wrap">
     <a class="brand" href="/" aria-label="${esc(site.name)}, accueil">${MARK}${WORDMARK}</a>
@@ -43,6 +56,8 @@ const header = active => `
       ${NAV.map(n => navItem(n, active)).join('\n      ')}
     </nav>
     <div class="header-actions">
+      <button class="search-btn theme-btn" type="button" aria-label="Passer en mode clair" title="Mode clair / sombre"><svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
+      <a class="search-btn" href="/recherche.html" aria-label="Rechercher sur le site" title="Rechercher">${ICONS.search}</a>
       <a class="btn btn-rdv" href="/rendez-vous.html">${ICONS.calendar}Prendre rendez-vous</a>
       <div class="account" id="account"><a class="btn btn-sm btn-ghost" href="/connexion.html">Connexion</a></div>
       <button class="nav-toggle" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="main-nav"><span></span><span></span></button>
@@ -87,6 +102,8 @@ function layout({ title, desc, nav, body, script, page }) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc || 'Cabinet d\'avocats AVOCAT & CONSEIL à Los Santos.')}">
 <meta name="theme-color" content="#09090A">
+<meta name="color-scheme" content="dark light">
+<script>try{var t=localStorage.getItem('ac_theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.dataset.theme=t;if(t==='light')document.querySelector('meta[name=theme-color]').content='#FFFFFF'}catch(e){}</script>
 <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/bodoni-moda-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/hanken-grotesk-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -113,6 +130,7 @@ const fill = html => html
   .replace(/\{\{icon:(\w+)\}\}/g, (_, k) => ICONS[k] || '')
   .replace(/\{\{domains:cards\}\}/g, () => DOMAINS.map(d => `
     <a class="domain-card" href="/expertises/${d.slug}.html">${ICONS[DOMAIN_ICON[d.slug]]}<strong>${esc(d.name)}</strong><span>${esc(d.tag)}</span></a>`).join(''))
+  .replace(/\{\{quick\}\}/g, () => QUICK.map(([h, t, d, ext]) => `<a class="quick-link" href="${h}"${ext ? ' target="_blank" rel="noopener"' : ''}><strong>${esc(t)}</strong><span>${esc(d)}</span></a>`).join(''))
   .replace(/\{\{domains:index\}\}/g, () => DOMAINS.map(d => `
     <a class="domain-row" href="/expertises/${d.slug}.html">
       <h3>${esc(d.name)}</h3><p>${esc(d.short)}</p><span class="arrow">${ARROW}</span>

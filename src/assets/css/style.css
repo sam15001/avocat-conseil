@@ -820,3 +820,99 @@ dialog.modal { overflow: hidden; }
 .law-sum { color: var(--paper-dim); font-size: .92rem; line-height: 1.55; }
 .law-pen { margin-top: auto; padding-top: 8px; font-size: .82rem; color: var(--muted); border-top: 1px solid var(--line-soft); }
 .law-kicker { font-size: .85rem; font-weight: 500; color: var(--bronze); letter-spacing: .02em; margin: 0 0 10px; }
+
+/* ─── Inspiration portail juridique : bandeau, recherche, accès rapide ─── */
+.notice-band { background: var(--ink-3); border-bottom: 1px solid var(--line-soft); font-size: .8125rem; color: var(--paper-dim); }
+.notice-band .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 7px; padding-bottom: 7px; max-width: 1400px; }
+.notice-band a { color: var(--bronze); text-decoration: none; white-space: nowrap; }
+.notice-band a:hover { color: var(--bronze-hi); text-decoration: underline; }
+@media (max-width: 720px) { .notice-band .wrap { justify-content: center; text-align: center; } .notice-band span { display: none; } }
+.search-btn { display: inline-grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--line); color: var(--paper-dim); flex-shrink: 0; }
+.search-btn:hover { color: var(--bronze); border-color: var(--bronze-lo); }
+.search-btn svg { width: 18px; height: 18px; }
+.hero-search { display: flex; max-width: 640px; margin: 28px 0 0; }
+.hero-search input { flex: 1; min-width: 0; height: 54px; padding: 0 18px; background: color-mix(in srgb, var(--ink) 80%, transparent); border: 1px solid var(--line); border-right: 0; color: var(--paper); font: 400 16px var(--sans); }
+.hero-search input:focus { outline: none; border-color: var(--bronze); }
+.hero-search .btn { height: 54px; border-radius: 0; flex-shrink: 0; }
+.hero-search .btn svg { width: 18px; height: 18px; }
+.hero-tip { font-size: .875rem; color: var(--paper-dim); margin: 10px 0 0; }
+.hero-tip a { color: var(--bronze); }
+.page-search { margin-top: 20px; }
+@media (max-width: 520px) { .hero-search .btn { padding: 0 14px; font-size: 0; gap: 0; } .hero-search .btn svg { width: 20px; height: 20px; } }
+.quick-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--bronze-lo); padding-bottom: 12px; margin-bottom: 0; }
+.quick-head h2 { margin: 0; font-size: var(--step-3); }
+.quick-head a { color: var(--bronze); text-decoration: none; display: inline-flex; gap: 8px; align-items: center; font-size: .9rem; white-space: nowrap; }
+.quick-head a svg { width: 14px; height: 14px; }
+.quick-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.quick-link { display: flex; flex-direction: column; gap: 6px; padding: 22px 22px 24px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--paper); }
+.quick-link strong { font-family: var(--sans); font-weight: 600; font-size: 1.02rem; color: var(--paper); transition: color .25s; }
+.quick-link span { color: var(--paper-dim); font-size: .9rem; line-height: 1.5; }
+.quick-link:hover strong { color: var(--bronze); }
+@media (max-width: 1000px) { .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .quick-grid { grid-template-columns: 1fr; } .quick-link { padding-right: 0; } }
+.quick-section { padding-top: 64px; padding-bottom: 0; }
+/* Typographie plus sobre pour les intertitres */
+h3 { font-family: var(--sans); font-weight: 600; letter-spacing: 0; }
+/* Résultats de recherche */
+.search-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.filter-chip { border: 1px solid var(--line); padding: 7px 14px; font-size: .875rem; color: var(--paper-dim); text-decoration: none; }
+.filter-chip[aria-pressed="true"] { border-color: var(--bronze); color: var(--bronze); }
+.results-title { font-family: var(--sans); font-weight: 600; font-size: 1.05rem; color: var(--paper-dim); margin: 28px 0 12px; }
+.search-hit { display: flex; flex-direction: column; gap: 4px; padding: 16px 20px; border: 1px solid var(--line); margin-bottom: 10px; text-decoration: none; color: var(--paper); background: var(--ink-2); }
+.search-hit:hover { border-color: var(--bronze-lo); }
+.search-hit.exact { border-color: var(--bronze); }
+.search-hit .where { font-size: .78rem; color: var(--bronze); }
+.search-hit strong { font-weight: 600; }
+.search-hit .txt { color: var(--paper-dim); font-size: .93rem; }
+.search-hit .extra { font-size: .85rem; color: var(--muted); }
+.search-hit mark { background: color-mix(in srgb, var(--bronze) 30%, transparent); color: var(--paper); }
+.search-note { margin-top: 24px; font-size: .85rem; }
+.hero-tip + .hero-actions { margin-top: 28px; }
+#results .results-title:first-child { margin-top: 0; }
+
+/* ═══ Mode clair (style portail institutionnel) ═══ */
+:root[data-theme="light"] {
+  --ink: #FFFFFF; --ink-2: #F6F5F2; --ink-3: #FFFFFF; --anthracite: #ECEAE5;
+  --line: #D8D4CC; --line-soft: #E7E4DE;
+  --paper: #17181C; --paper-dim: #474A52; --muted: #6A6D74;
+  --bronze: #8A6A32; --bronze-hi: #6F5426; --bronze-lo: #C7B38E;
+  --danger: #A3412C; --ok: #4A6B39; --info: #4C6782;
+  color-scheme: light;
+}
+.theme-btn { background: none; cursor: pointer; }
+.theme-btn .i-moon { display: none; }
+:root[data-theme="light"] .theme-btn .i-sun { display: none; }
+:root[data-theme="light"] .theme-btn .i-moon { display: block; }
+:root[data-theme="light"] .site-header { background: color-mix(in srgb, #fff 92%, transparent); box-shadow: 0 1px 0 var(--line-soft); }
+:root[data-theme="light"] .notice-band { background: #1B2333; color: #D9DEE8; border-bottom: 0; }
+:root[data-theme="light"] .notice-band a { color: #E7CF9E; }
+:root[data-theme="light"] .site-footer { background: #F1EFEB; border-top: 1px solid var(--line); }
+:root[data-theme="light"] .dash-side { background: #F6F5F2; }
+:root[data-theme="light"] .input:hover { border-color: #B9B4AA; }
+:root[data-theme="light"] .choice:hover, :root[data-theme="light"] .service-option:hover { border-color: #B9B4AA; }
+:root[data-theme="light"] .btn-discord { background: #1B1C20; border-color: #1B1C20; color: #fff; }
+:root[data-theme="light"] .btn-discord:hover { background: #000; border-color: #000; }
+:root[data-theme="light"] .btn:not(.btn-ghost):not(.btn-quiet):not(.btn-danger):not(.btn-discord) { color: #fff; }
+:root[data-theme="light"] .btn-ghost:hover { background: var(--paper); color: #fff; }
+:root[data-theme="light"] .price-tag { border-color: var(--bronze-lo); }
+:root[data-theme="light"] .price-tag.free { border-color: #B7C8AA; }
+:root[data-theme="light"] .kpi-card.accent { border-color: var(--bronze-lo); }
+:root[data-theme="light"] .pill.s-attente_docs { color: #8F5E12; }
+:root[data-theme="light"] dialog.modal { box-shadow: 0 24px 60px rgba(20,22,28,.18); }
+:root[data-theme="light"] dialog.modal::backdrop { background: rgba(20,22,28,.45); }
+:root[data-theme="light"] .toast { box-shadow: 0 8px 24px rgba(20,22,28,.12); }
+:root[data-theme="light"] .account-menu, :root[data-theme="light"] .drop-menu { box-shadow: 0 12px 32px rgba(20,22,28,.12); }
+:root[data-theme="light"] .side-link[aria-selected="true"] { background: linear-gradient(90deg, rgba(138,106,50,.16), rgba(138,106,50,.04)); }
+:root[data-theme="light"] .page-head { background: var(--ink-2); }
+:root[data-theme="light"] .page-head-photo { opacity: .35; }
+:root[data-theme="light"] .law-card:hover, :root[data-theme="light"] .quick-link:hover { background: var(--ink-2); }
+/* La grande photo d'accueil et les portraits restent sur fond sombre : texte clair lisible sur l'image */
+:root[data-theme="light"] .hero, :root[data-theme="light"] .team-portraits .lawyer-meta {
+  --ink: #09090A; --ink-2: #111113; --ink-3: #18181B; --line: #303136; --line-soft: #222327;
+  --paper: #ECE8E1; --paper-dim: #BDB8AF; --muted: #8C887F; --bronze: #C5A16B; --bronze-hi: #DDBE88; --bronze-lo: #7A6240;
+  color: var(--paper);
+}
+:root[data-theme="light"] .hero .btn:not(.btn-ghost):not(.btn-quiet) { color: #09090A; }
+:root[data-theme="light"] .domain-card { background: rgba(255,255,255,.96); border-color: var(--line); --paper: #17181C; --muted: #6A6D74; --bronze: #8A6A32; color: var(--paper); }
+:root[data-theme="light"] .domain-card:hover { background: #fff; border-color: #8A6A32; }
+:root[data-theme="light"] .team-portraits .lawyer-portrait { border-color: var(--line); }

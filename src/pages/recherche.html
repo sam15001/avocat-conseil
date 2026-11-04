@@ -1,0 +1,16 @@
+<!-- {"title": "Recherche — AVOCAT & CONSEIL", "desc": "Rechercher une prestation, un avocat, une actualité ou un article de la législation de FratWorld.", "nav": "", "script": "search.mjs"} -->
+<section class="page-head">
+  <div class="wrap">
+    <nav class="breadcrumb" aria-label="Fil d'Ariane"><a href="/">Accueil</a><span>/</span><span>Recherche</span></nav>
+    <h1>Recherche</h1>
+    <form class="hero-search page-search" id="search-form" role="search">
+      <label class="sr-only" for="q">Rechercher</label>
+      <input id="q" name="q" type="search" placeholder="Une prestation, un avocat, un article de loi…" autocomplete="off">
+      <button class="btn" type="submit">{{icon:search}}Rechercher</button>
+    </form>
+    <div class="search-filters" id="filters" role="group" aria-label="Type de résultat"></div>
+  </div>
+</section>
+<section class="section-tight">
+  <div class="wrap"><div id="results" aria-live="polite" style="max-width:960px"></div></div>
+</section>

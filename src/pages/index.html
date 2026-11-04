@@ -5,6 +5,12 @@
     <h1><span class="line"><span>Votre défense,</span></span><span class="line"><span>notre <em>engagement.</em></span></span></h1>
     <span class="hero-rule" aria-hidden="true"></span>
     <p class="lede">Un accompagnement juridique rigoureux au cœur de Los Santos.</p>
+    <form class="hero-search" action="/recherche.html" role="search">
+      <label class="sr-only" for="hero-q">Rechercher</label>
+      <input id="hero-q" name="q" type="search" placeholder="Une prestation, un avocat, un article de loi…" autocomplete="off">
+      <button class="btn" type="submit">{{icon:search}}Rechercher</button>
+    </form>
+    <p class="hero-tip">Exemples : garde à vue, caution, <a href="/recherche.html?q=CPP%20226-4">CPP 226-4</a>, IRS, licence d’alcool.</p>
     <div class="hero-actions">
       <a class="btn btn-lg" href="/rendez-vous.html">{{icon:calendar}}Prendre rendez-vous</a>
       <a class="btn btn-ghost btn-lg" href="/expertises.html">Découvrir nos services{{icon:arrow}}</a>
@@ -14,6 +20,13 @@
 
 <section class="domain-strip" aria-label="Domaines d'intervention">
   <div class="wrap"><div class="domain-cards">{{domains:cards}}</div></div>
+</section>
+
+<section class="section quick-section" aria-labelledby="quick-title">
+  <div class="wrap">
+    <div class="quick-head"><h2 id="quick-title">Accès rapide</h2><a href="/expertises.html">Tous nos domaines{{icon:arrow}}</a></div>
+    <div class="quick-grid">{{quick}}</div>
+  </div>
 </section>
 
 <section class="section team-section">
