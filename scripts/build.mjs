@@ -11,6 +11,12 @@ fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 fs.cpSync(path.join(SRC, 'assets'), path.join(OUT, 'assets'), { recursive: true });
 fs.copyFileSync('shared/domains.mjs', path.join(OUT, 'assets/js/domains.mjs'));
+// Numéro de version : après chaque mise en ligne, le navigateur charge les nouveaux scripts (même URL partout)
+const BUILD = Date.now().toString(36);
+for (const f of fs.readdirSync(path.join(OUT, 'assets/js')).filter(f => f.endsWith('.mjs'))) {
+  const file = path.join(OUT, 'assets/js', f);
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/(from\s+|import\()(['"])(\.\/[\w-]+\.mjs)\2/g, `$1$2$3?v=${BUILD}$2`));
+}
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -105,9 +111,9 @@ function layout({ title, desc, nav, body, script, page }) {
 <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/bodoni-moda-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/hanken-grotesk-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/css/style.css">
-<script type="module" src="/assets/js/app.mjs"></script>
-${script ? `<script type="module" src="/assets/js/${script}"></script>` : ''}
+<link rel="stylesheet" href="/assets/css/style.css?v=${BUILD}">
+<script type="module" src="/assets/js/app.mjs?v=${BUILD}"></script>
+${script ? `<script type="module" src="/assets/js/${script}?v=${BUILD}"></script>` : ''}
 </head>
 <body data-page="${page}">
 ${header(nav)}
