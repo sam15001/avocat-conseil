@@ -188,8 +188,11 @@ export async function createContract(data) {
   const t = now();
   return insert('contracts', { ...data, ref: `AC-CT-${t.slice(0, 4)}-${String(seq).padStart(4, '0')}`, status: 'signature', signatures: {}, created_at: t, updated_at: t });
 }
-export const getContract = id => get('contracts', id);
-export const listContracts = async () => (await all('contracts')).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+// Firebase supprime les listes et objets vides (missions, signatures) : on les remet à la lecture
+const asList = v => Array.isArray(v) ? v.filter(x => x != null) : v && typeof v === 'object' ? Object.values(v) : [];
+const fix = c => c && { ...c, missions: asList(c.missions), signatures: c.signatures || {}, employee: c.employee || {}, clauses: c.clauses || '' };
+export const getContract = async id => fix(await get('contracts', id));
+export const listContracts = async () => (await all('contracts')).map(fix).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
 export async function signContract(c, party, who) {
   const signatures = { ...(c.signatures || {}), [party]: { name: who.name, discord_id: who.discord_id, at: now() } };
   const status = party === 'cabinet' ? 'valide' : (signatures.employer && signatures.employee ? 'validation' : 'signature');
