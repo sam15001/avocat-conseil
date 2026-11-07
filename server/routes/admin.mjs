@@ -226,7 +226,7 @@ route('PATCH', '/api/admin/users/:id', async ({ req, params, user }) => {
 }, { auth: 2 });
 
 // ── Contrats générés depuis Discord
-route('GET', '/api/admin/contracts', async () => { const nums = new Map((await all('cases')).map(k => [k.id, k.number])); return json({ contracts: (await listContracts()).slice(0, 300).map(c => ({ case_number: nums.get(c.case_id) || null,
+route('GET', '/api/admin/contracts', async () => { const nums = new Map((await all('cases')).map(k => [k.id, k.number])); return json({ contracts: (await listContracts()).slice(0, 2000).map(c => ({ case_number: nums.get(c.case_id) || null,
   id: c.id, ref: c.ref, type: c.type, type_label: CONTRACT_TYPES[c.type], company: c.company, employer_name: c.employer_name, position: c.position,
   employee_name: `${c.employee?.first_name || ''} ${c.employee?.last_name || ''}`.trim(), status: c.status, status_label: contractStatus[c.status],
   signatures: c.signatures || {}, refused_by: c.refused_by || null, created_at: c.created_at })) }); }, { auth: 1 });

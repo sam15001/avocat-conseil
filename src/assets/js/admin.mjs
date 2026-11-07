@@ -265,16 +265,46 @@ const loaders = {
 
   async contrats() {
     const p = panel('contrats');
+    p.innerHTML = '<span class="loader">Chargement</span>';
     const { contracts } = await api('/admin/contracts');
+    const norm = v => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const STATES = [['signature', 'En attente des signatures'], ['validation', 'À valider'], ['valide', 'Validés'], ['refuse', 'Refusés']];
+    const companies = [...new Set(contracts.map(c => c.company).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+    const types = [...new Set(contracts.map(c => c.type).filter(Boolean))].sort();
     const pill = c => `<span class="pill s-${{ signature: 'attente', validation: 'attribue', valide: 'cloture', refuse: 'refuse' }[c.status] || 'recue'}">${esc(c.status_label || c.status)}</span>`;
-    p.innerHTML = `<p class="muted" style="margin-top:0">Les entreprises abonnées (case « Accès au service de rédaction » dans leur fiche client) et l’équipe tapent <b>/contrat</b> sur Discord. Le bot envoie le PDF aux deux parties pour signature, puis un avocat le valide depuis le salon des nouvelles demandes.</p>
-      ${contracts.length ? `<div class="table-wrap"><table class="data stack"><thead><tr><th>Référence</th><th>Contrat</th><th>Dossier</th><th>Entreprise</th><th>Salarié</th><th>Signatures</th><th>État</th><th></th></tr></thead><tbody>
-      ${contracts.map(c => `<tr><td data-label="Référence"><b>${esc(c.ref)}</b><br><span class="muted" style="font-size:.82rem">${fmtDate(c.created_at)}</span></td><td data-label="Contrat">${esc(c.type)}</td><td data-label="Dossier">${c.case_number ? `<a href="/dossier.html?n=${encodeURIComponent(c.case_number)}">${esc(c.case_number)}</a>` : '<span class="muted">—</span>'}</td>
+    const row = c => `<tr><td data-label="Référence"><b>${esc(c.ref)}</b><br><span class="muted" style="font-size:.82rem">${fmtDate(c.created_at)}</span></td><td data-label="Contrat">${esc(c.type)}</td><td data-label="Dossier">${c.case_number ? `<a href="/dossier.html?n=${encodeURIComponent(c.case_number)}">${esc(c.case_number)}</a>` : '<span class="muted">—</span>'}</td>
         <td data-label="Entreprise">${esc(c.company)}<br><span class="muted" style="font-size:.82rem">${esc(c.employer_name)}</span></td><td data-label="Salarié">${esc(c.employee_name)}<br><span class="muted" style="font-size:.82rem">${esc(c.position)}</span></td>
         <td data-label="Signatures">${['employer', 'employee', 'cabinet'].map(k => `${c.signatures[k] ? '✔' : '○'} ${{ employer: 'Entreprise', employee: 'Salarié', cabinet: 'Cabinet' }[k]}`).join('<br>')}</td>
         <td data-label="État">${pill(c)}${c.refused_by ? `<br><span class="muted" style="font-size:.82rem">par ${esc(c.refused_by)}</span>` : ''}</td>
-        <td><a class="btn btn-ghost btn-sm" href="/api/admin/contracts/${c.id}/pdf" target="_blank" rel="noopener">PDF</a></td></tr>`).join('')}</tbody></table></div>`
+        <td><a class="btn btn-ghost btn-sm" href="/api/admin/contracts/${c.id}/pdf" target="_blank" rel="noopener">PDF</a></td></tr>`;
+    const hay = contracts.map(c => norm([c.ref, c.type, c.company, c.employer_name, c.employee_name, c.position, c.case_number, c.status_label, c.status, c.refused_by].join(' ')));
+    p.innerHTML = `<p class="muted" style="margin-top:0">Les entreprises abonnées (case « Accès au service de rédaction » dans leur fiche client) et l’équipe tapent <b>/contrat</b> sur Discord. Le bot envoie le PDF aux deux parties pour signature, puis un avocat le valide depuis le salon des nouvelles demandes.</p>
+      ${contracts.length ? `<div class="toolbar">
+        <input class="input search" type="search" name="q" placeholder="Rechercher : référence, entreprise, gérant, salarié, poste, dossier" aria-label="Rechercher un contrat">
+        <select class="input" name="type" aria-label="Type"><option value="">Tous les types</option>${types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select>
+        <select class="input" name="company" aria-label="Entreprise"><option value="">Toutes les entreprises</option>${companies.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
+        <select class="input" name="status" aria-label="État"><option value="">Tous les états</option>${STATES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
+        <select class="input" name="case" aria-label="Dossier"><option value="">Avec ou sans dossier</option><option value="with">Joints à un dossier</option><option value="without">Sans dossier</option></select>
+      </div>
+      <p class="muted" id="ct-count" style="font-size:.88rem;margin:8px 0"></p>
+      <div class="table-wrap"><table class="data stack"><thead><tr><th>Référence</th><th>Contrat</th><th>Dossier</th><th>Entreprise</th><th>Salarié</th><th>Signatures</th><th>État</th><th></th></tr></thead><tbody id="ct-body"></tbody></table></div>
+      <div class="empty" id="ct-empty" hidden><h3>Aucun contrat ne correspond</h3><p>Modifiez la recherche ou les filtres.</p></div>`
       : '<div class="empty"><h3>Aucun contrat</h3><p>Les contrats rédigés avec /contrat sur Discord apparaîtront ici.</p></div>'}`;
+    if (!contracts.length) return;
+    const f = { q: '', type: '', company: '', status: '', case: '' };
+    const render = () => {
+      const words = norm(f.q).split(/\s+/).filter(Boolean);
+      const shown = contracts.filter((c, i) => words.every(w => hay[i].includes(w))
+        && (!f.type || c.type === f.type) && (!f.company || c.company === f.company) && (!f.status || c.status === f.status)
+        && (!f.case || (f.case === 'with' ? !!c.case_number : !c.case_number)));
+      $('#ct-body', p).innerHTML = shown.map(row).join('');
+      $('.table-wrap', p).hidden = !shown.length;
+      $('#ct-empty', p).hidden = !!shown.length;
+      $('#ct-count', p).textContent = shown.length === contracts.length ? `${contracts.length} contrat${contracts.length > 1 ? 's' : ''}` : `${shown.length} sur ${contracts.length} contrats`;
+    };
+    let t;
+    $$('.toolbar [name]', p).forEach(el => el.addEventListener(el.type === 'search' ? 'input' : 'change', () => { clearTimeout(t); t = setTimeout(() => { f[el.name] = el.value; render(); }, el.type === 'search' ? 200 : 0); }));
+    render();
   },
 
   async actualites() {
